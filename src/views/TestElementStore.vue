@@ -130,8 +130,9 @@ const clearSelection = () => {
 }
 
 const deleteSelected = () => {
-  // 逐个删除选中的元素
-  selectedIds.value.forEach(id => elementsStore.removeElement(id))
+  // 使用批量删除接口，一次记录历史快照
+  if (!hasSelection.value) return
+  elementsStore.removeElements(selectedIds.value)
   selectionStore.clearSelection()
 }
 
