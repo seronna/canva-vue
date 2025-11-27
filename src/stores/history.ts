@@ -13,11 +13,9 @@ export const useHistoryStore = defineStore('history', {
   actions: {
     /** 记录快照 */
     pushSnapshot(snapshot: AnyElement[]) {
-      // 如果处于批处理阶段，只保留第一次的初始快照（用于撤销恢复到批处理前状态）
+      // 如果处于批处理阶段，持续更新 pendingSnapshot 为最新的快照（最终会在 endBatch 时入栈）
       if (this.batchDepth > 0) {
-        if (this.pendingSnapshot == null) {
-          this.pendingSnapshot = JSON.parse(JSON.stringify(snapshot))
-        }
+        this.pendingSnapshot = JSON.parse(JSON.stringify(snapshot))
         return
       }
 
@@ -37,12 +35,11 @@ export const useHistoryStore = defineStore('history', {
     },
 
     /** 开始批处理：合并多次变更为一次历史快照 */
-    beginBatch(initialSnapshot?: AnyElement[]) {
-      this.batchDepth++
-      // 如果传入初始快照，且尚未有 pendingSnapshot，则设置它（用于在 endBatch 时入栈）
-      if (initialSnapshot && this.pendingSnapshot == null) {
-        this.pendingSnapshot = JSON.parse(JSON.stringify(initialSnapshot))
+    beginBatch() {
+      if (this.batchDepth === 0) {
+        this.pendingSnapshot = null
       }
+      this.batchDepth++
     },
 
     /** 结束批处理并提交合并后的快照（如果有） */

@@ -144,7 +144,7 @@ export const useElementsStore = defineStore('elements', {
     /** 开始批处理（代理到 history） */
     beginBatch() {
       const history = useHistoryStore()
-      history.beginBatch(JSON.parse(JSON.stringify(this.elements)))
+      history.beginBatch()
     },
 
     /** 结束批处理（代理到 history） */
