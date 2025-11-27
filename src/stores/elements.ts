@@ -131,6 +131,20 @@ export const useElementsStore = defineStore('elements', {
       this.saveToLocal()
     },
 
+    /** 更新文本元素 */
+    updateTextElement(
+      elementId: string,
+      updates: Partial<Omit<TextElement, 'id' | 'type' | 'createdAt' | 'updatedAt'>>
+    ): void {
+      const element = this.elements.find(el => el.id === elementId);
+      if (!element || element.type !== 'text') return;
+
+      Object.assign(element, updates)
+      element.updatedAt = Date.now()
+      this.recordSnapshot()
+      this.saveToLocal()
+    },
+
     /** 移动元素（相对移动） */
     moveElement(id: string, dx: number, dy: number) {
       const el = this.elements.find((e) => e.id === id)

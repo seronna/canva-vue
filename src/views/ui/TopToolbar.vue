@@ -49,9 +49,20 @@
           <polygon points="12,2 22,22 2,22"></polygon>
         </svg>
       </button>
-      <!-- <button class="tool-btn"  :class="{active: currentTool === 'editor'}" @click="setTool('editor')" title="编辑工具 (E)">
-        <svg t="1764034124762" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4623" width="32" height="32"><path d="M792.149333 289.557333V157.696a8.256 8.256 0 0 0-8.234666-8.256H223.424a8.256 8.256 0 0 0-8.234667 8.256v131.861333c0 4.544 3.690667 8.256 8.234667 8.256h57.706667a8.256 8.256 0 0 0 8.234666-8.256v-65.92h173.098667v576.96h-94.805333a8.256 8.256 0 0 0-8.234667 8.234667v57.706667c0 4.522667 3.712 8.234667 8.234667 8.234666h272a8.256 8.256 0 0 0 8.256-8.234666v-57.706667a8.256 8.256 0 0 0-8.256-8.234667h-94.784V223.637333h173.098666v65.92c0 4.544 3.712 8.256 8.234667 8.256h57.706667a8.256 8.256 0 0 0 8.234666-8.256z" fill="#000000" p-id="4624"></path></svg>
-      </button> -->
+      <button
+        class="tool-btn"
+        :class="{ active: currentTool === 'text' }"
+        @click="setTool('text')"
+        title="文本工具 (T)"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      </button>
     </div>
   </div>
 </template>
