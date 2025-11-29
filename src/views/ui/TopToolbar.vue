@@ -92,13 +92,12 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useCanvasStore, type ToolType } from '@/stores/canvas'
-import { HistoryService } from '@/services'
+import { historyService } from '@/services'
 import { useElementsStore } from '@/stores/elements'
 
 const canvasStore = useCanvasStore()
 const currentTool = computed(() => canvasStore.currentTool)
 
-const historyService = new HistoryService()
 const elementsStore = useElementsStore()
 
 const canUndo = computed(() => historyService.canUndo())

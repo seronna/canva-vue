@@ -82,12 +82,11 @@ import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useElementsStore } from '@/stores/elements'
 import { useSelectionStore } from '@/stores/selection'
-import { HistoryService } from '@/services'
+import { historyService } from '@/services'
 import type { Element } from '@/cores/types/element'
 
 const elementsStore = useElementsStore()
 const selectionStore = useSelectionStore()
-const historyService = new HistoryService()
 
 onMounted(() => {
   elementsStore.loadFromLocal()
