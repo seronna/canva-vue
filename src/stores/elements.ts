@@ -238,6 +238,29 @@ export const useElementsStore = defineStore('elements', {
         this.elements = snapshot
         this.saveToLocal()
       }
-    }
+    },
+    /**
+     * 批量更新元素
+     * @param ids 要更新的元素ID数组
+     * @param updates 更新对象或更新函数
+     */
+    updateElements(
+      ids: string[],
+      updates: Partial<AnyElement> | ((element: AnyElement) => void)
+    ): void {
+      ids.forEach(id => {
+        const element = this.elements.find(el => el.id === id)
+        if (element) {
+          if (typeof updates === 'function') {
+            updates(element)
+          } else {
+            Object.assign(element, updates)
+          }
+          element.updatedAt = Date.now()
+        }
+      })
+      this.saveToLocal()
+    },
+
   },
 })

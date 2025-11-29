@@ -5,7 +5,7 @@
   <div class="selection-overlay">
     <!-- 单选边框 -->
     <div
-      v-if="selectedIds.length === 1 && boundingBox"
+      v-if="selectedIds.length >= 1 && boundingBox"
       class="selection-box single"
       :style="{
         left: boundingBox.x + 'px',
@@ -16,29 +16,22 @@
       @mousedown="startDrag"
     >
       <!-- 四个角的控制点 -->
-      <div class="resize-handle top-left"></div>
-      <div class="resize-handle top-right"></div>
-      <div class="resize-handle bottom-left"></div>
-      <div class="resize-handle bottom-right"></div>
-    </div>
-
-    <!-- 多选边框 - 可拖拽 -->
-    <div
-      v-if="selectedIds.length > 1 && boundingBox"
-      class="selection-box multi draggable"
-      :style="{
-        left: boundingBox.x + 'px',
-        top: boundingBox.y + 'px',
-        width: boundingBox.width + 'px',
-        height: boundingBox.height + 'px'
-      }"
-      @mousedown="startDrag"
-    >
-      <!-- 四个角的控制点 -->
-      <div class="resize-handle top-left"></div>
-      <div class="resize-handle top-right"></div>
-      <div class="resize-handle bottom-left"></div>
-      <div class="resize-handle bottom-right"></div>
+      <div
+        class="resize-handle top-left"
+        @mousedown="(e) => startResize(e, 'top-left')"
+      ></div>
+      <div
+        class="resize-handle top-right"
+        @mousedown="(e) => startResize(e, 'top-right')"
+      ></div>
+      <div
+        class="resize-handle bottom-left"
+        @mousedown="(e) => startResize(e, 'bottom-left')"
+      ></div>
+      <div
+        class="resize-handle bottom-right"
+        @mousedown="(e) => startResize(e, 'bottom-right')"
+      ></div>
     </div>
   </div>
 </template>
@@ -47,60 +40,141 @@
 import { computed, ref } from 'vue'
 import { useSelectionStore } from '@/stores/selection'
 import { useElementsStore } from '@/stores/elements'
+import { SelectionService } from '@/services/selection/SelectionService'
 
 const selectionStore = useSelectionStore()
 const elementsStore = useElementsStore()
+const selectionService = new SelectionService()
 
 const selectedIds = computed(() => selectionStore.selectedIds)
 const isDragging = ref(false)
+const isResizing = ref(false)
 const dragStartPos = ref({ x: 0, y: 0 })
+const resizeHandleType = ref<'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'>('top-left')
+const startElementData = ref<{ x: number; y: number; width: number; height: number } | null>(null)
+const startBoundingBox = ref<{ x: number; y: number; width: number; height: number } | null>(null)
 
-// 开始拖拽
+// 开始拖拽移动
 const startDrag = (event: MouseEvent) => {
   if (selectedIds.value.length === 0) return
-  
+
   isDragging.value = true
   dragStartPos.value = { x: event.clientX, y: event.clientY }
-  
+
   // 添加全局事件监听
-  document.addEventListener('mousemove', onDrag)
-  document.addEventListener('mouseup', stopDrag)
-  
+  document.addEventListener('mousemove', onDragMove)
+  document.addEventListener('mouseup', stopDragMove)
+
   // 阻止默认行为和事件冒泡
   event.preventDefault()
   event.stopPropagation()
-  
+
   console.log('开始拖拽选中框')
 }
 
-// 拖拽中
-const onDrag = (event: MouseEvent) => {
+// 拖拽移动中
+const onDragMove = (event: MouseEvent) => {
   if (!isDragging.value) return
-  
+
   // 计算移动距离
   const dx = event.clientX - dragStartPos.value.x
   const dy = event.clientY - dragStartPos.value.y
-  
+
   // 更新起始位置
   dragStartPos.value = { x: event.clientX, y: event.clientY }
-  
+
   // 移动所有选中的元素
   if (selectedIds.value.length > 0) {
     elementsStore.moveElements(selectedIds.value, dx, dy)
   }
 }
 
-// 停止拖拽
-const stopDrag = () => {
+// 停止拖拽移动
+const stopDragMove = () => {
   if (!isDragging.value) return
-  
+
   isDragging.value = false
-  
+
   // 移除全局事件监听
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
-  
-  console.log('拖拽完成')
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', stopDragMove)
+
+  console.log('拖拽移动完成')
+}
+
+// 开始缩放
+const startResize = (event: MouseEvent, handleType: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right') => {
+  if (selectedIds.value.length === 0) return
+
+  isResizing.value = true
+  resizeHandleType.value = handleType
+  dragStartPos.value = { x: event.clientX, y: event.clientY }
+
+  // 保存初始数据
+  if (selectedIds.value.length === 1) {
+    // 单个元素
+    const elementId = selectionStore.firstSelectedId
+    if (elementId) {
+      const element = elementsStore.getElementById(elementId)
+    if (element) {
+      startElementData.value = {
+        x: element.x,
+        y: element.y,
+        width: element.width,
+        height: element.height
+      }
+    }
+    }
+  } else {
+    // 多个元素
+    startBoundingBox.value = selectionService.calculateBoundingBox(selectedIds.value)
+  }
+
+  // 添加全局事件监听
+  document.addEventListener('mousemove', onResize)
+  document.addEventListener('mouseup', stopResize)
+
+  // 阻止默认行为和事件冒泡
+  event.preventDefault()
+  event.stopPropagation()
+
+  console.log('开始缩放，控制点:', handleType)
+}
+
+// 缩放中
+const onResize = (event: MouseEvent) => {
+  if (!isResizing.value) return
+
+  // 计算移动距离
+  const dx = event.clientX - dragStartPos.value.x
+  const dy = event.clientY - dragStartPos.value.y
+
+  if (selectedIds.value.length === 1 && startElementData.value) {
+    // 单个元素缩放
+    const elementId = selectedIds.value[0]
+    const { x, y, width, height } = startElementData.value
+    if(elementId){
+      selectionService.resizeElement(elementId, resizeHandleType.value, dx, dy, x, y, width, height)
+    }
+  } else if (selectedIds.value.length > 1 && startBoundingBox.value) {
+    // 多个元素缩放
+    selectionService.resizeElements(selectedIds.value, resizeHandleType.value, dx, dy, startBoundingBox.value)
+  }
+}
+
+// 停止缩放
+const stopResize = () => {
+  if (!isResizing.value) return
+
+  isResizing.value = false
+  startElementData.value = null
+  startBoundingBox.value = null
+
+  // 移除全局事件监听
+  document.removeEventListener('mousemove', onResize)
+  document.removeEventListener('mouseup', stopResize)
+
+  console.log('缩放完成')
 }
 
 // 计算选中元素的组合边界框
