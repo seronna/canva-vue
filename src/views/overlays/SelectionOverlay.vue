@@ -24,6 +24,7 @@
       <div class="resize-handle top-right" @mousedown="startResize($event, 'tr')"></div>
       <div class="resize-handle bottom-left" @mousedown="startResize($event, 'bl')"></div>
       <div class="resize-handle bottom-right" @mousedown="startResize($event, 'br')"></div>
+      <div class="rotate-handle" @mousedown="startRotate($event)"></div>
     </div>
 
     <!-- 多选边框 - 可拖拽 -->
@@ -43,6 +44,7 @@
       <div class="resize-handle top-right" @mousedown="startResize($event, 'tr')"></div>
       <div class="resize-handle bottom-left" @mousedown="startResize($event, 'bl')"></div>
       <div class="resize-handle bottom-right" @mousedown="startResize($event, 'br')"></div>
+      <div class="rotate-handle" @mousedown="startRotate($event)"></div>
     </div>
   </div>
 </template>
@@ -66,10 +68,13 @@ const { getDragState, startDrag: startGlobalDrag, updateDragOffset: updateGlobal
 const selectedIds = computed(() => selectionStore.selectedIds)
 const isDragging = ref(false)
 const isResizing = ref(false)
+const isRotating = ref(false)
 const dragStartPos = ref({ x: 0, y: 0 })
 const resizeStart = ref({ x: 0, y: 0, w: 0, h: 0 })
+const rotateStart = ref({ x: 0, y: 0, angle: 0 })
 const resizeHandle = ref('')
 const totalOffset = ref({ x: 0, y: 0 }) // 累计拖拽偏移量
+const rotationAngle = ref(0)
 const singleBoxRef = ref<HTMLElement>()
 const multiBoxRef = ref<HTMLElement>()
 let animationFrameId: number | null = null
@@ -288,12 +293,12 @@ const onResize = (e: MouseEvent) => {
   const dy = e.clientY - resizeStart.value.y
   let w = resizeStart.value.w
   let h = resizeStart.value.h
-  
+
   if (resizeHandle.value.includes('r')) w += dx
   if (resizeHandle.value.includes('l')) w -= dx
   if (resizeHandle.value.includes('b')) h += dy
   if (resizeHandle.value.includes('t')) h -= dy
-  
+
   const isCircle = selectedIds.value.some(id => {
     const el = elementsStore.getElementById(id)
     return el?.type === 'shape' && 'shapeType' in el && el.shapeType === 'circle'
@@ -305,7 +310,7 @@ const onResize = (e: MouseEvent) => {
     w = resizeStart.value.w * scale
     h = resizeStart.value.h * scale
   }
-  
+
   if (animationFrameId) return
   animationFrameId = requestAnimationFrame(() => {
     const box = selectedIds.value.length === 1 ? singleBoxRef.value : multiBoxRef.value
@@ -328,14 +333,14 @@ const onResize = (e: MouseEvent) => {
       box.style.width = w + 'px'
       box.style.height = h + 'px'
     }
-    
+
     // Render cache shapes during resize
     if (canvasService && cachedBoundingBox.value) {
       const scaleX = w / resizeStart.value.w
       const scaleY = h / resizeStart.value.h
       const centerX = cachedBoundingBox.value.x + cachedBoundingBox.value.width / 2
       const centerY = cachedBoundingBox.value.y + cachedBoundingBox.value.height / 2
-      
+
       selectedIds.value.forEach(id => {
         const el = elementsStore.getElementById(id)
         if (el) {
@@ -353,7 +358,7 @@ const onResize = (e: MouseEvent) => {
             if (resizeHandle.value.includes('l')) newX += el.width * (1 - scaleX)
             if (resizeHandle.value.includes('t')) newY += el.height * (1 - scaleY)
           }
-          
+
           if (el.type === 'image') {
             // Update DOM image element
             const imgEl = document.querySelector(`img[data-element-id="${id}"]`) as HTMLElement
@@ -373,7 +378,7 @@ const onResize = (e: MouseEvent) => {
         }
       })
     }
-    
+
     animationFrameId = null
   })
 }
@@ -381,15 +386,15 @@ const onResize = (e: MouseEvent) => {
 const stopResize = () => {
   if (!isResizing.value || !cachedBoundingBox.value) return
   if (animationFrameId) cancelAnimationFrame(animationFrameId)
-  
+
   const box = selectedIds.value.length === 1 ? singleBoxRef.value : multiBoxRef.value
   const scaleX = parseFloat(box?.style.width || '0') / cachedBoundingBox.value.width
   const scaleY = parseFloat(box?.style.height || '0') / cachedBoundingBox.value.height
-  
+
   if (Math.abs(scaleX - 1) > 0.01 || Math.abs(scaleY - 1) > 0.01) {
     const centerX = cachedBoundingBox.value.x + cachedBoundingBox.value.width / 2
     const centerY = cachedBoundingBox.value.y + cachedBoundingBox.value.height / 2
-    
+
     elementsStore.updateElements(selectedIds.value, (el) => {
       let x, y
       if (selectedIds.value.length > 1) {
@@ -412,7 +417,7 @@ const stopResize = () => {
     })
     elementsStore.saveToLocal()
     cachedBoundingBox.value = calculateBoundingBox()
-    
+
     // Reset graphics scale after store update
     requestAnimationFrame(() => {
       if (canvasService) {
@@ -423,10 +428,96 @@ const stopResize = () => {
       }
     })
   }
-  
+
   isResizing.value = false
   document.removeEventListener('mousemove', onResize)
   document.removeEventListener('mouseup', stopResize)
+}
+
+const startRotate = (e: MouseEvent) => {
+  if (!cachedBoundingBox.value) return
+  isRotating.value = true
+  const centerX = cachedBoundingBox.value.x + cachedBoundingBox.value.width / 2
+  const centerY = cachedBoundingBox.value.y + cachedBoundingBox.value.height / 2
+  const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX)
+  rotateStart.value = { x: centerX, y: centerY, angle: startAngle }
+  rotationAngle.value = 0
+  document.addEventListener('mousemove', onRotate)
+  document.addEventListener('mouseup', stopRotate)
+  e.preventDefault()
+  e.stopPropagation()
+}
+
+const onRotate = (e: MouseEvent) => {
+  if (!isRotating.value || !cachedBoundingBox.value) return
+  const currentAngle = Math.atan2(e.clientY - rotateStart.value.y, e.clientX - rotateStart.value.x)
+  rotationAngle.value = currentAngle - rotateStart.value.angle
+
+  if (animationFrameId) return
+  animationFrameId = requestAnimationFrame(() => {
+    const box = selectedIds.value.length === 1 ? singleBoxRef.value : multiBoxRef.value
+    if (box && cachedBoundingBox.value) {
+      const centerX = cachedBoundingBox.value.width / 2
+      const centerY = cachedBoundingBox.value.height / 2
+      box.style.transformOrigin = `${centerX}px ${centerY}px`
+      box.style.transform = `translate3d(${cachedBoundingBox.value.x}px, ${cachedBoundingBox.value.y}px, 0) rotate(${rotationAngle.value}rad)`
+    }
+
+    if (canvasService && cachedBoundingBox.value) {
+      selectedIds.value.forEach(id => {
+        const el = elementsStore.getElementById(id)
+        if (el) {
+          if (el.type === 'image') {
+            const imgEl = document.querySelector(`img[data-element-id="${id}"]`) as HTMLElement
+            if (imgEl) {
+              // const centerX = el.x + el.width / 2
+              // const centerY = el.y + el.height / 2
+              imgEl.style.transformOrigin = `${el.width / 2}px ${el.height / 2}px`
+              imgEl.style.transform = `translate3d(${el.x}px, ${el.y}px, 0) rotate(${(el.rotation || 0) + rotationAngle.value}rad)`
+            }
+          } else {
+            const graphic = canvasService.getRenderService().getGraphic(id)
+            if (graphic) {
+              graphic.pivot.set(el.width / 2, el.height / 2)
+              graphic.x = el.x + el.width / 2
+              graphic.y = el.y + el.height / 2
+              graphic.rotation = (el.rotation || 0) + rotationAngle.value
+            }
+          }
+        }
+      })
+    }
+    animationFrameId = null
+  })
+}
+
+const stopRotate = () => {
+  if (!isRotating.value) return
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
+
+  if (Math.abs(rotationAngle.value) > 0.01) {
+    elementsStore.updateElements(selectedIds.value, (el) => {
+      el.rotation = (el.rotation || 0) + rotationAngle.value
+    })
+    elementsStore.saveToLocal()
+
+    requestAnimationFrame(() => {
+      if (canvasService) {
+        selectedIds.value.forEach(id => {
+          const graphic = canvasService.getRenderService().getGraphic(id)
+          if (graphic) {
+            const el = elementsStore.getElementById(id)
+            graphic.rotation = el?.rotation || 0
+          }
+        })
+      }
+    })
+  }
+
+  isRotating.value = false
+  rotationAngle.value = 0
+  document.removeEventListener('mousemove', onRotate)
+  document.removeEventListener('mouseup', stopRotate)
 }
 
 // 组件卸载时清理
@@ -439,6 +530,8 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', stopDrag)
   document.removeEventListener('mousemove', onResize)
   document.removeEventListener('mouseup', stopResize)
+  document.removeEventListener('mousemove', onRotate)
+  document.removeEventListener('mouseup', stopRotate)
 })
 
 </script>
@@ -514,5 +607,23 @@ onUnmounted(() => {
   bottom: -5px;
   right: -5px;
   cursor: nwse-resize;
+}
+
+.rotate-handle {
+  position: absolute;
+  bottom: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 2px solid #4672EF;
+  border-radius: 50%;
+  cursor: grab;
+  z-index: 102;
+}
+
+.rotate-handle:active {
+  cursor: grabbing;
 }
 </style>
