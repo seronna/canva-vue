@@ -27,7 +27,7 @@ View层 - 画布容器组件
       <!-- 世界容器 - 跟随画布变换 -->
       <div class="world-container" :style="worldContainerStyle">
         <!-- 对齐辅助线 -->
-        <guidelines-overlay />
+        <guidelines-overlay class="no-pointer-events" />
 
         <!-- 渲染图片元素 -->
         <image-element
@@ -203,7 +203,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.world-container > * {
+.world-container > *:not(.no-pointer-events) {
   pointer-events: auto;
 }
 

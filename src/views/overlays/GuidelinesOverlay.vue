@@ -3,7 +3,7 @@ View层 - 对齐辅助线组件
 职责：在拖拽元素时显示对齐参考线
 -->
 <template>
-  <div class="guidelines">
+  <div class="guidelines-overlay">
     <!-- 垂直辅助线 (X轴对齐) -->
     <div
       v-for="(x, index) in verticalLines"
@@ -31,14 +31,14 @@ const { verticalLines, horizontalLines } = storeToRefs(guidelinesStore)
 </script>
 
 <style scoped>
-.guidelines {
+.guidelines-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  z-index: 1000;
+  pointer-events: none; /* 关键：不响应鼠标事件，允许点击穿透 */
+  z-index: 900; /* 确保在 SelectionOverlay (100) 之上，但在某些工具之下 */
   overflow: visible; /* 允许辅助线溢出容器 */
 }
 
