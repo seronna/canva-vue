@@ -13,7 +13,8 @@
       ref="singleBoxRef"
       class="selection-box single"
       :style="{
-        transform: `translate3d(${boundingBox.x}px, ${boundingBox.y}px, 0)`,
+        transform: `translate3d(${boundingBox.x}px, ${boundingBox.y}px, 0) rotate(${getSelectionRotation()}rad)`,
+        transformOrigin: `${boundingBox.width / 2}px ${boundingBox.height / 2}px`,
         width: boundingBox.width + 'px',
         height: boundingBox.height + 'px'
       }"
@@ -149,6 +150,15 @@ const boundingBox = computed(() => {
   return cachedBoundingBox.value
 })
 
+// Get rotation for selection box
+const getSelectionRotation = () => {
+  if (selectedIds.value.length === 1 && selectedIds.value[0]) {
+    const el = elementsStore.getElementById(selectedIds.value[0])
+    return el?.rotation || 0
+  }
+  return 0
+}
+
 // 开始拖拽
 const startDrag = (event: MouseEvent) => {
   if (selectedIds.value.length === 0) return
@@ -202,7 +212,8 @@ const onDrag = (event: MouseEvent) => {
     if (boxRef && cachedBoundingBox.value) {
       const newX = cachedBoundingBox.value.x + totalOffset.value.x
       const newY = cachedBoundingBox.value.y + totalOffset.value.y
-      boxRef.style.transform = `translate3d(${newX}px, ${newY}px, 0)`
+      const rotation = getSelectionRotation()
+      boxRef.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${rotation}rad)`
     }
 
     // 同步更新元素位置
@@ -460,7 +471,8 @@ const onRotate = (e: MouseEvent) => {
       const centerX = cachedBoundingBox.value.width / 2
       const centerY = cachedBoundingBox.value.height / 2
       box.style.transformOrigin = `${centerX}px ${centerY}px`
-      box.style.transform = `translate3d(${cachedBoundingBox.value.x}px, ${cachedBoundingBox.value.y}px, 0) rotate(${rotationAngle.value}rad)`
+      const currentRotation = getSelectionRotation()
+      box.style.transform = `translate3d(${cachedBoundingBox.value.x}px, ${cachedBoundingBox.value.y}px, 0) rotate(${currentRotation + rotationAngle.value}rad)`
     }
 
     if (canvasService && cachedBoundingBox.value) {
