@@ -151,6 +151,7 @@ const showSmallGrid = computed(() => {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 0;
+  z-index: 0; /* 在 PIXI canvas (z-index: 1) 下方 */
+  background-color: #ffffff; /* 白色背景 */
 }
 </style>

@@ -47,16 +47,16 @@ export class CanvasService {
     // 初始化渲染服务（传入ViewportService）
     const app = await this.renderService.initialize(container, this.viewportService)
 
-    // 设置工具服务和事件服务的App实例
-    this.toolService.setApp(app)
-    this.eventService.setApp(app)
-
     // 设置事件服务的ViewportService和WorldContainer
     this.eventService.setViewportService(this.viewportService)
     const worldContainer = this.renderService.getWorldContainer()
     if (worldContainer) {
       this.eventService.setWorldContainer(worldContainer)
-    }    // 设置事件处理器
+    }
+
+    // 设置工具服务和事件服务的App实例（传入worldContainer）
+    this.toolService.setApp(app, worldContainer || undefined)
+    this.eventService.setApp(app)    // 设置事件处理器
     this.eventService.setHandlers(handlers)
 
     // 设置元素ID获取函数
@@ -81,7 +81,9 @@ export class CanvasService {
    */
   private bindToolPreview(app: Application): void {
     app.stage.on('pointermove', (event: FederatedPointerEvent) => {
-      this.toolService.updatePreview(event)
+      // 将屏幕坐标转换为世界坐标
+      const worldPos = this.eventService.screenToWorld(event.global.x, event.global.y)
+      this.toolService.updatePreview(event, worldPos.x, worldPos.y)
     })
   }
 

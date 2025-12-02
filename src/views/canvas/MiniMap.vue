@@ -17,10 +17,10 @@
         <!-- 矩形元素 -->
         <rect
           v-if="element.type === 'shape' && element.shapeType === 'rectangle'"
-          :x="worldToMap(element.x)"
-          :y="worldToMap(element.y)"
-          :width="worldToMap(element.width)"
-          :height="worldToMap(element.height)"
+          :x="element.x"
+          :y="element.y"
+          :width="element.width"
+          :height="element.height"
           :fill="element.fillColor || '#4A90E2'"
           :stroke="element.strokeColor || '#000'"
           :stroke-width="0.5"
@@ -30,9 +30,9 @@
         <!-- 圆形元素 -->
         <circle
           v-else-if="element.type === 'shape' && element.shapeType === 'circle'"
-          :cx="worldToMap(element.x + element.width / 2)"
-          :cy="worldToMap(element.y + element.height / 2)"
-          :r="worldToMap(Math.min(element.width, element.height) / 2)"
+          :cx="element.x + element.width / 2"
+          :cy="element.y + element.height / 2"
+          :r="Math.min(element.width, element.height) / 2"
           :fill="element.fillColor || '#E94B3C'"
           :stroke="element.strokeColor || '#000'"
           :stroke-width="0.5"
@@ -52,10 +52,10 @@
         <!-- 图片元素 -->
         <rect
           v-else-if="element.type === 'image'"
-          :x="worldToMap(element.x)"
-          :y="worldToMap(element.y)"
-          :width="worldToMap(element.width)"
-          :height="worldToMap(element.height)"
+          :x="element.x"
+          :y="element.y"
+          :width="element.width"
+          :height="element.height"
           fill="#ddd"
           stroke="#999"
           :stroke-width="0.5"
@@ -65,10 +65,10 @@
         <!-- 文本元素 -->
         <rect
           v-else-if="element.type === 'text'"
-          :x="worldToMap(element.x)"
-          :y="worldToMap(element.y)"
-          :width="worldToMap(element.width)"
-          :height="worldToMap(element.height)"
+          :x="element.x"
+          :y="element.y"
+          :width="element.width"
+          :height="element.height"
           fill="#fff"
           stroke="#666"
           :stroke-width="0.5"
@@ -151,16 +151,8 @@ const scale = computed(() => {
   return Math.min(scaleX, scaleY)
 })
 
-// 世界坐标转换为小地图坐标
-const worldToMap = (worldCoord: number) => {
-  return worldCoord * scale.value
-}
-
 // 计算视口在小地图中的位置
 const viewportRect = computed(() => {
-  const viewport = canvasStore.viewport
-  const canvasWidth = canvasStore.width || 800
-  const canvasHeight = canvasStore.height || 600
   
   if (!canvasService) {
     return { x: 0, y: 0, width: mapWidth, height: mapHeight }

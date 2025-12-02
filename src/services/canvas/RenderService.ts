@@ -35,7 +35,7 @@ export class RenderService {
 
     this.app = new Application()
     await this.app.init({
-      background: '#ffffff',
+      backgroundAlpha: 0, // 透明背景
       resizeTo: container,
       antialias: true,
       resolution: window.devicePixelRatio || 1,  // 支持高 DPI 屏幕（Retina）

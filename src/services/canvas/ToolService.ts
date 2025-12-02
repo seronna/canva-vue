@@ -6,7 +6,7 @@
  * 2. 处理工具预览逻辑
  * 3. 提供工具切换API
  */
-import { Graphics, FederatedPointerEvent, Application } from 'pixi.js'
+import { Graphics, FederatedPointerEvent, Application, Container } from 'pixi.js'
 
 export type ToolType = 'select' | 'pan' | 'rectangle' | 'circle' | 'triangle' | 'text'
 
@@ -20,14 +20,16 @@ export class ToolService {
   private currentTool: ToolType = 'select'
   private previewShape: Graphics | null = null
   private app: Application | null = null
+  private worldContainer: Container | null = null
 
   constructor() { }
 
   /**
-   * 设置Application实例
+   * 设置Application实例和世界容器
    */
-  setApp(app: Application): void {
+  setApp(app: Application, worldContainer?: Container): void {
     this.app = app
+    this.worldContainer = worldContainer || null
   }
 
   /**
@@ -55,26 +57,23 @@ export class ToolService {
   }
 
   /**
-   * 更新工具预览
+   * 更新工具预览（使用世界坐标）
    */
-  updatePreview(event: FederatedPointerEvent): void {
-    if (!this.app) return
+  updatePreview(event: FederatedPointerEvent, worldX: number, worldY: number): void {
+    if (!this.app || !this.worldContainer) return
 
     if (this.isDrawingTool()) {
       // 创建或更新预览图形
       if (!this.previewShape) {
         this.previewShape = new Graphics()
         this.previewShape.alpha = 0.5
-        this.app.stage.addChild(this.previewShape)
+        this.worldContainer.addChild(this.previewShape)
       }
 
       // 清除之前的绘制
       this.previewShape.clear()
 
-      const mouseX = event.global.x
-      const mouseY = event.global.y
-
-      // 根据工具类型绘制预览
+      // 根据工具类型绘制预览（使用世界坐标）
       if (this.currentTool === 'rectangle') {
         this.previewShape.rect(-100, -75, 200, 150)
         this.previewShape.fill('#4A90E2')
@@ -92,8 +91,9 @@ export class ToolService {
         this.previewShape.fill('#34C759')
       }
 
-      this.previewShape.x = mouseX
-      this.previewShape.y = mouseY
+      // 使用世界坐标定位
+      this.previewShape.x = worldX
+      this.previewShape.y = worldY
     } else {
       this.clearPreview()
     }
@@ -103,8 +103,8 @@ export class ToolService {
    * 清除预览
    */
   clearPreview(): void {
-    if (this.previewShape && this.app) {
-      this.app.stage.removeChild(this.previewShape)
+    if (this.previewShape && this.worldContainer) {
+      this.worldContainer.removeChild(this.previewShape)
       this.previewShape.destroy()
       this.previewShape = null
     }

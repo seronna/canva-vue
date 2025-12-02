@@ -92,7 +92,7 @@ export class EventService {
    * 将屏幕坐标转换为世界坐标
    * 如果没有视口服务，直接返回屏幕坐标（向后兼容）
    */
-  private screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
+  screenToWorld(screenX: number, screenY: number): { x: number; y: number } {
     if (!this.viewportService) {
       return { x: screenX, y: screenY }
     }
@@ -201,13 +201,14 @@ export class EventService {
 
         // 实时更新元素位置（拖拽预览）
         const allElements = this.handlers.getAllElements?.()
-        if (allElements) {
+        if (allElements && this.worldContainer) {
           if (isMultiSelect && selectedIds) {
             // 多选拖拽：更新所有选中元素的视觉位置
             selectedIds.forEach(id => {
               const element = allElements.find(el => el.id === id)
-              if (element) {
-                const graphic = event.currentTarget.children.find(
+              if (element && element.type === 'shape') {
+                // 从 worldContainer 中查找图形
+                const graphic = this.worldContainer!.children.find(
                   (child) => this.getElementIdByGraphic?.(child as Graphics) === id
                 ) as Graphics
                 if (graphic) {
@@ -219,8 +220,9 @@ export class EventService {
           } else {
             // 单选拖拽：更新当前元素的视觉位置
             const element = allElements.find(el => el.id === this.dragTargetId)
-            if (element) {
-              const graphic = event.currentTarget.children.find(
+            if (element && element.type === 'shape') {
+              // 从 worldContainer 中查找图形
+              const graphic = this.worldContainer!.children.find(
                 (child) => this.getElementIdByGraphic?.(child as Graphics) === this.dragTargetId
               ) as Graphics
               if (graphic) {

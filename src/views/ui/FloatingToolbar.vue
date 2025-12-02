@@ -101,13 +101,15 @@ import { useCanvasStore } from '@/stores/canvas'
 import { useElementsStore } from '@/stores/elements'
 import { useSelectionStore } from '@/stores/selection'
 import { useDragState } from '@/composables/useDragState'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, inject, onMounted, onUnmounted, ref } from 'vue'
 import { CoordinateTransform } from '@/cores/viewport/CoordinateTransform'
+import type { CanvasService } from '@/services/canvas/CanvasService'
 
 const selectionStore = useSelectionStore()
 const elementsStore = useElementsStore()
 const canvasStore = useCanvasStore()
 const { getDragState } = useDragState()
+const canvasService = inject<CanvasService>('canvasService')
 
 // 监听拖拽状态
 const isDragging = computed(() => {
@@ -125,6 +127,22 @@ const presetColors = [
 const showFillPicker = ref(false)
 const showBorderColorPicker = ref(false)
 const showBorderWidthPicker = ref(false)
+
+// RAF ID 用于节流和延迟保存
+let fillColorRafId: number | null = null
+let borderColorRafId: number | null = null
+let saveTimeoutId: number | null = null
+
+// 延迟保存到 store（避免频繁更新）
+const debouncedSave = () => {
+  if (saveTimeoutId !== null) {
+    clearTimeout(saveTimeoutId)
+  }
+  saveTimeoutId = window.setTimeout(() => {
+    elementsStore.saveToLocal()
+    saveTimeoutId = null
+  }, 300)
+}
 
 // 边框宽度选项
 const borderWidthOptions = [
@@ -213,14 +231,43 @@ const updateFill = (color: string) => {
   showFillPicker.value = false
 }
 
-// 更新背景色  (自定义颜色)
+// 更新背景色  (自定义颜色 - 使用 RAF 优化 + 直接 PIXI 更新)
 const updateFillCustom = (event: Event) => {
   const target = event.target as HTMLInputElement
-  if (selectedElement.value && selectedElement.value.type === 'shape') {
-    elementsStore.updateShapeElementProperties(selectedElement.value.id, {
-      fillColor: target.value
-    })
+  const color = target.value
+  
+  if (!selectedElement.value || selectedElement.value.type !== 'shape') return
+  
+  // 取消之前的 RAF
+  if (fillColorRafId !== null) {
+    cancelAnimationFrame(fillColorRafId)
   }
+  
+  // 使用 RAF 确保流畅更新
+  fillColorRafId = requestAnimationFrame(() => {
+    if (!selectedElement.value || selectedElement.value.type !== 'shape') return
+    
+    const elementId = selectedElement.value.id
+    
+    // 1. 立即更新 store 中的元素数据（不触发保存）
+    const element = elementsStore.getElementById(elementId)
+    if (element && element.type === 'shape') {
+      element.fillColor = color
+    }
+    
+    // 2. 直接更新 PIXI 渲染（跳过脏检查）
+    if (canvasService) {
+      canvasService.updateGraphicStyle(elementId, {
+        ...selectedElement.value,
+        fillColor: color
+      })
+    }
+    
+    // 3. 延迟保存到 localStorage
+    debouncedSave()
+    
+    fillColorRafId = null
+  })
 }
 
 // 更新边框宽度
@@ -243,14 +290,43 @@ const updateBorderColor = (color: string) => {
   showBorderColorPicker.value = false
 }
 
-// 更新边框颜色（自定义颜色）
+// 更新边框颜色（自定义颜色 - 使用 RAF 优化 + 直接 PIXI 更新）
 const updateBorderColorCustom = (event: Event) => {
   const target = event.target as HTMLInputElement
-  if (selectedElement.value && selectedElement.value.type === 'shape') {
-    elementsStore.updateShapeElementProperties(selectedElement.value.id, {
-      strokeColor: target.value
-    })
+  const color = target.value
+  
+  if (!selectedElement.value || selectedElement.value.type !== 'shape') return
+  
+  // 取消之前的 RAF
+  if (borderColorRafId !== null) {
+    cancelAnimationFrame(borderColorRafId)
   }
+  
+  // 使用 RAF 确保流畅更新
+  borderColorRafId = requestAnimationFrame(() => {
+    if (!selectedElement.value || selectedElement.value.type !== 'shape') return
+    
+    const elementId = selectedElement.value.id
+    
+    // 1. 立即更新 store 中的元素数据（不触发保存）
+    const element = elementsStore.getElementById(elementId)
+    if (element && element.type === 'shape') {
+      element.strokeColor = color
+    }
+    
+    // 2. 直接更新 PIXI 渲染（跳过脏检查）
+    if (canvasService) {
+      canvasService.updateGraphicStyle(elementId, {
+        ...selectedElement.value,
+        strokeColor: color
+      })
+    }
+    
+    // 3. 延迟保存到 localStorage
+    debouncedSave()
+    
+    borderColorRafId = null
+  })
 }
 
 // 点击外部关闭选择器
@@ -269,6 +345,19 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  
+  // 清理待处理的 RAF
+  if (fillColorRafId !== null) {
+    cancelAnimationFrame(fillColorRafId)
+  }
+  if (borderColorRafId !== null) {
+    cancelAnimationFrame(borderColorRafId)
+  }
+  
+  // 清理延迟保存定时器
+  if (saveTimeoutId !== null) {
+    clearTimeout(saveTimeoutId)
+  }
 })
 </script>
 
