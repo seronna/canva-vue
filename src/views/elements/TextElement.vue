@@ -3,6 +3,7 @@
     ref="elementRef"
     class="text-element"
     :style="containerStyle"
+    :data-element-id="element.id"
     @mousedown="handleMouseDown"
     @dblclick="handleDoubleClick"
   >
@@ -45,25 +46,31 @@ const elementRef = ref<HTMLElement | null>(null)
 let animationFrameId: number | null = null
 
 // 容器样式 - 使用 transform3d 启用 GPU 加速
-const containerStyle = computed(() => ({
-  position: 'absolute' as const,
-  left: '0',
-  top: '0',
-  width: `${props.element.width}px`,
-  height: `${props.element.height}px`, // 使用固定高度而非 minHeight
-  transform: `translate3d(${props.element.x}px, ${props.element.y}px, 0) rotate(${props.element.rotation || 0}deg)`,
-  opacity: props.element.opacity,
-  visibility: (props.element.visible ? 'visible' : 'hidden') as 'visible' | 'hidden',
-  pointerEvents: (props.element.locked ? 'none' : 'auto') as 'none' | 'auto',
-  zIndex: 1000 + props.element.zIndex,
-  fontSize: `${props.element.fontSize}px`,
-  color: props.element.color,
-  fontFamily: props.element.fontFamily,
-  fontWeight: props.element.fontWeight || 'normal',
-  fontStyle: props.element.fontStyle || 'normal',
-  textDecoration: props.element.textDecoration || 'none',
-  cursor: 'move' as const
-}))
+const containerStyle = computed(() => {
+  // 调整位置以适应中心变换原点
+  const centerX = props.element.x + props.element.width / 2
+  const centerY = props.element.y + props.element.height / 2
+  
+  return {
+    position: 'absolute' as const,
+    left: '0',
+    top: '0',
+    width: `${props.element.width}px`,
+    height: `${props.element.height}px`, // 使用固定高度而非 minHeight
+    transform: `translate3d(${centerX}px, ${centerY}px, 0) rotate(${props.element.rotation || 0}rad)`,
+    opacity: props.element.opacity,
+    visibility: (props.element.visible ? 'visible' : 'hidden') as 'visible' | 'hidden',
+    pointerEvents: (props.element.locked ? 'none' : 'auto') as 'none' | 'auto',
+    zIndex: 1000 + props.element.zIndex,
+    fontSize: `${props.element.fontSize}px`,
+    color: props.element.color,
+    fontFamily: props.element.fontFamily,
+    fontWeight: props.element.fontWeight || 'normal',
+    fontStyle: props.element.fontStyle || 'normal',
+    textDecoration: props.element.textDecoration || 'none',
+    cursor: 'move' as const
+  }
+})
 
 // 鼠标按下
 const handleMouseDown = (e: MouseEvent) => {
@@ -107,9 +114,11 @@ const handleMouseMove = (e: MouseEvent) => {
     const newX = elementStartPos.value.x + dx
     const newY = elementStartPos.value.y + dy
     
-    // 直接操作 DOM，不触发响应式更新
+    // 直接操作 DOM，不触发响应式更新（使用中心定位）
     if (elementRef.value) {
-      elementRef.value.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${props.element.rotation || 0}deg)`
+      const centerX = newX + props.element.width / 2
+      const centerY = newY + props.element.height / 2
+      elementRef.value.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${props.element.rotation || 0}rad)`
     }
     
     animationFrameId = null
@@ -161,7 +170,7 @@ const handleDoubleClick = () => {
 
 <style scoped>
 .text-element {
-  transform-origin: top left;
+  transform-origin: center center;
   /* 拖拽时启用 GPU 加速 */
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;

@@ -118,7 +118,7 @@ const calculateBoundingBox = () => {
 watch(
   () => selectedIds.value.map(id => {
     const el = elementsStore.getElementById(id)
-    return el ? `${el.x},${el.y},${el.width},${el.height}` : ''
+    return el ? `${el.x},${el.y},${el.width},${el.height},${el.rotation || 0}` : ''
   }).join('|'),
   () => {
     cachedBoundingBox.value = calculateBoundingBox()
@@ -221,10 +221,20 @@ const onDrag = (event: MouseEvent) => {
       selectedIds.value.forEach(id => {
         const el = elementsStore.getElementById(id)
         if (el?.type === 'image') {
-          // Update DOM image element
+          // Update DOM image element with rotation preserved (center-based)
           const imgEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
           if (imgEl) {
-            imgEl.style.transform = `translate3d(${el.x + totalOffset.value.x}px, ${el.y + totalOffset.value.y}px, 0)`
+            const centerX = el.x + el.width / 2 + totalOffset.value.x
+            const centerY = el.y + el.height / 2 + totalOffset.value.y
+            imgEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${el.rotation || 0}rad)`
+          }
+        } else if (el?.type === 'text') {
+          // Update DOM text element with rotation preserved (center-based)
+          const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+          if (textEl) {
+            const centerX = el.x + el.width / 2 + totalOffset.value.x
+            const centerY = el.y + el.height / 2 + totalOffset.value.y
+            textEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${el.rotation || 0}rad)`
           }
         }
       })
@@ -259,14 +269,23 @@ const stopDrag = () => {
     elementsStore.moveElements(selectedIds.value, totalOffset.value.x, totalOffset.value.y)
     elementsStore.saveToLocal()
 
-    // Reset DOM image transforms after store update
+    // Reset DOM transforms after store update with rotation preserved (center-based)
     requestAnimationFrame(() => {
       selectedIds.value.forEach(id => {
         const el = elementsStore.getElementById(id)
         if (el?.type === 'image') {
           const imgEl = document.querySelector(`img[data-element-id="${id}"]`) as HTMLElement
           if (imgEl) {
-            imgEl.style.transform = `translate3d(${el.x}px, ${el.y}px, 0)`
+            const centerX = el.x + el.width / 2
+            const centerY = el.y + el.height / 2
+            imgEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${el.rotation || 0}rad)`
+          }
+        } else if (el?.type === 'text') {
+          const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+          if (textEl) {
+            const centerX = el.x + el.width / 2
+            const centerY = el.y + el.height / 2
+            textEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${el.rotation || 0}rad)`
           }
         }
       })
@@ -371,12 +390,24 @@ const onResize = (e: MouseEvent) => {
           }
 
           if (el.type === 'image') {
-            // Update DOM image element
+            // Update DOM image element with rotation preserved (center-based)
             const imgEl = document.querySelector(`img[data-element-id="${id}"]`) as HTMLElement
             if (imgEl) {
-              imgEl.style.transform = `translate3d(${newX}px, ${newY}px, 0)`
+              const centerX = newX + (el.width * scaleX) / 2
+              const centerY = newY + (el.height * scaleY) / 2
+              imgEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${el.rotation || 0}rad)`
               imgEl.style.width = `${el.width * scaleX}px`
               imgEl.style.height = `${el.height * scaleY}px`
+            }
+          } else if (el.type === 'text') {
+            // Update DOM text element with rotation preserved (center-based)
+            const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+            if (textEl) {
+              const centerX = newX + (el.width * scaleX) / 2
+              const centerY = newY + (el.height * scaleY) / 2
+              textEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${el.rotation || 0}rad)`
+              textEl.style.width = `${el.width * scaleX}px`
+              textEl.style.height = `${el.height * scaleY}px`
             }
           } else {
             // Update PIXI Graphics
@@ -482,10 +513,16 @@ const onRotate = (e: MouseEvent) => {
           if (el.type === 'image') {
             const imgEl = document.querySelector(`img[data-element-id="${id}"]`) as HTMLElement
             if (imgEl) {
-              // const centerX = el.x + el.width / 2
-              // const centerY = el.y + el.height / 2
-              imgEl.style.transformOrigin = `${el.width / 2}px ${el.height / 2}px`
-              imgEl.style.transform = `translate3d(${el.x}px, ${el.y}px, 0) rotate(${(el.rotation || 0) + rotationAngle.value}rad)`
+              const centerX = el.x + el.width / 2
+              const centerY = el.y + el.height / 2
+              imgEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${(el.rotation || 0) + rotationAngle.value}rad)`
+            }
+          } else if (el.type === 'text') {
+            const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+            if (textEl) {
+              const centerX = el.x + el.width / 2
+              const centerY = el.y + el.height / 2
+              textEl.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${(el.rotation || 0) + rotationAngle.value}rad)`
             }
           } else {
             const graphic = canvasService.getRenderService().getGraphic(id)

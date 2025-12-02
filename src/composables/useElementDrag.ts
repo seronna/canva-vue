@@ -117,12 +117,18 @@ export function useElementDrag(elementId: string) {
     }
 
     animationFrameId = requestAnimationFrame(() => {
+      const element = elementsStore.getElementById(elementId)
+      if (!element) return
+
       const newX = initialTransform.x + totalOffset.value.x
       const newY = initialTransform.y + totalOffset.value.y
 
       // 直接操作 DOM，使用 translate3d 启用 GPU 加速
+      // 使用中心坐标（与元素初始渲染保持一致）
       if (currentElement) {
-        currentElement.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${initialTransform.rotation}deg)`
+        const centerX = newX + element.width / 2
+        const centerY = newY + element.height / 2
+        currentElement.style.transform = `translate3d(${centerX}px, ${centerY}px, 0) rotate(${initialTransform.rotation}rad)`
       }
 
       // 同步更新 Canvas 元素位置（如果存在）
