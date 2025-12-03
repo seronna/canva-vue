@@ -336,7 +336,6 @@ const stopDrag = () => {
   // 应用最终偏移到 Store
   if ((Math.abs(totalOffset.value.x) > 1 || Math.abs(totalOffset.value.y) > 1) && selectedIds.value.length > 0) {
     elementsStore.moveElements(selectedIds.value, totalOffset.value.x, totalOffset.value.y)
-    elementsStore.saveToLocal()
 
     // Reset DOM image transforms after store update
     const viewport = canvasStore.viewport
