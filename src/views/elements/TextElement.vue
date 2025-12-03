@@ -6,6 +6,7 @@
     :data-element-id="element.id"
     @mousedown="handleMouseDown"
     @dblclick="handleDoubleClick"
+    @contextmenu.prevent
   >
     <div
       v-if="element.htmlContent"
