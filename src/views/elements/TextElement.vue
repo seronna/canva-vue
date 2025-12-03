@@ -6,6 +6,7 @@
     :data-element-id="element.id"
     @mousedown="handleMouseDown"
     @dblclick="handleDoubleClick"
+    @contextmenu.prevent
   >
     <div
       v-if="element.htmlContent"
@@ -496,5 +497,11 @@ const handleDoubleClick = (e: MouseEvent) => {
 
 .text-content :deep(li) {
   margin: 0.25em 0;
+}
+
+/* 高亮背景 */
+.text-content :deep(mark) {
+  padding: 0.1em 0.2em;
+  border-radius: 0.2em;
 }
 </style>

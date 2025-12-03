@@ -204,7 +204,7 @@ export class EventService {
       // 保存拖拽状态
       this.draggedIds = draggedIds
       this.initialBoundingBox = initialBoundingBox
-      
+
       // 展开组合元素，获取所有需要更新的元素ID（包括子元素）
       const getExpandedIds = (ids: string[]): string[] => {
         const expanded = new Set<string>()
@@ -221,7 +221,7 @@ export class EventService {
         })
         return Array.from(expanded)
       }
-      
+
       // 保存所有元素的初始位置（包括组合的子元素）
       this.initialElementPositions.clear()
       const expandedIds = getExpandedIds(draggedIds)
@@ -317,7 +317,7 @@ export class EventService {
           }
 
           // 确定要更新的元素ID列表
-          const idsToUpdate = isMultiSelect && selectedIds 
+          const idsToUpdate = isMultiSelect && selectedIds
             ? getExpandedIds(selectedIds)
             : getExpandedIds([this.dragTargetId])
 
