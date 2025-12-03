@@ -1,3 +1,4 @@
+console.time('render-100-canvas')
 import './assets/main.css'
 
 import { createApp } from 'vue'

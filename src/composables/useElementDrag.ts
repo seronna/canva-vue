@@ -67,7 +67,7 @@ export function useElementDrag(elementId: string) {
     const baseIds = selectionStore.selectedIds.length > 1 && selectionStore.selectedIds.includes(elementId)
       ? selectionStore.selectedIds
       : [elementId]
-    
+
     // 展开组合元素，包含所有子元素用于实时渲染
     draggedIds = []
     baseIds.forEach(id => {
@@ -102,7 +102,7 @@ export function useElementDrag(elementId: string) {
       }
     }
 
-    console.log('[对齐调试-DOM] 开始拖拽:', { elementId, draggedIds, initialBoundingBox })
+    // console.log('[对齐调试-DOM] 开始拖拽:', { elementId, draggedIds, initialBoundingBox })
 
     // 通知全局拖拽状态开始（传入初始边界框）
     isDragging.value = true
@@ -158,7 +158,7 @@ export function useElementDrag(elementId: string) {
       const { dx: snapDx, dy: snapDy } = checkAlignment(targetRect, draggedIds)
 
       if (snapDx !== 0 || snapDy !== 0) {
-        console.log('[对齐调试-DOM] 检测到吸附:', { snapDx, snapDy })
+        // console.log('[对齐调试-DOM] 检测到吸附:', { snapDx, snapDy })
       }
 
       // 应用吸附修正

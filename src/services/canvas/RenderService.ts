@@ -152,6 +152,8 @@ export class RenderService {
         this.elementSnapshots.set(element.id, snapshot)
       }
     })
+
+    console.timeEnd('render-100-canvas')
   }
 
   /**
@@ -202,9 +204,9 @@ export class RenderService {
     const graphic = new Graphics()
     this.drawShape(graphic, element)
 
-    // Set pivot to center for rotation
+    // Set pivot to center for proper rotation but position at top-left
     graphic.pivot.set(element.width / 2, element.height / 2)
-    // Position at center in world coordinates
+    // Position at top-left, pivot handles center rotation
     graphic.x = element.x + element.width / 2
     graphic.y = element.y + element.height / 2
     // Apply rotation
@@ -296,9 +298,9 @@ export class RenderService {
   updateElementPosition(elementId: string, x: number, y: number): void {
     const graphic = this.graphicMap.get(elementId)
     if (graphic) {
-      // Position is center-based for rotation
-      graphic.x = x + graphic.width / 2
-      graphic.y = y + graphic.height / 2
+      // Position at top-left + pivot offset for center-based rotation
+      graphic.x = x + graphic.pivot.x
+      graphic.y = y + graphic.pivot.y
     }
   }
 
@@ -310,9 +312,9 @@ export class RenderService {
     updates.forEach(({ id, x, y }) => {
       const graphic = this.graphicMap.get(id)
       if (graphic) {
-        // Position is center-based for rotation
-        graphic.x = x + graphic.width / 2
-        graphic.y = y + graphic.height / 2
+        // Position at top-left + pivot offset for center-based rotation
+        graphic.x = x + graphic.pivot.x
+        graphic.y = y + graphic.pivot.y
       }
     })
   }

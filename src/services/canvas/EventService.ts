@@ -158,7 +158,7 @@ export class EventService {
       // 计算并传递初始边界框给全局拖拽状态
       const selectedIds = this.handlers.getSelectedIds?.() || []
       const allElements = this.handlers.getAllElements?.() || []
-      
+
       // 确定拖拽的元素列表
       // 如果是多选状态（>1个元素）且当前元素在选中列表中，则拖拽所有选中元素
       // 否则只拖拽当前点击的元素
@@ -168,20 +168,20 @@ export class EventService {
       } else {
         draggedIds = [elementId]
       }
-      
+
       // 防御性检查：确保 draggedIds 不为空
       if (draggedIds.length === 0) {
-        console.warn('[对齐调试] draggedIds 为空，强制添加当前元素')
+        // console.warn('[对齐调试] draggedIds 为空，强制添加当前元素')
         draggedIds = [elementId]
       }
 
       // 计算初始边界框
       const draggedElements = draggedIds.map(id => allElements.find(el => el.id === id)).filter(el => el != null) as AnyElement[]
-      
+
       if (draggedElements.length === 0) {
-        console.warn('[对齐调试] 未找到拖拽元素！', { draggedIds, allElementsCount: allElements.length })
+        // console.warn('[对齐调试] 未找到拖拽元素！', { draggedIds, allElementsCount: allElements.length })
       }
-      
+
       let initialBoundingBox = null
       if (draggedElements.length > 0) {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
@@ -202,17 +202,17 @@ export class EventService {
       // 保存拖拽状态
       this.draggedIds = draggedIds
       this.initialBoundingBox = initialBoundingBox
-      
-      console.log('[对齐调试] 开始拖拽:', { 
-        elementId, 
-        draggedIds, 
-        initialBoundingBox,
-        selectedIds,
-        allElementsCount: allElements.length,
-        allElementIds: allElements.map(el => el.id),
-        draggedElementsFound: draggedElements.length,
-        draggedElementsIds: draggedElements.map(el => el.id)
-      })
+
+      // console.log('[对齐调试] 开始拖拽:', {
+      //   elementId,
+      //   draggedIds,
+      //   initialBoundingBox,
+      //   selectedIds,
+      //   allElementsCount: allElements.length,
+      //   allElementIds: allElements.map(el => el.id),
+      //   draggedElementsFound: draggedElements.length,
+      //   draggedElementsIds: draggedElements.map(el => el.id)
+      // })
 
       // 启动全局拖拽状态
       this.dragState.startDrag(draggedIds, initialBoundingBox)
@@ -228,7 +228,7 @@ export class EventService {
       }
     }
   }  /**
-   * 统一处理鼠标移动事件 
+   * 统一处理鼠标移动事件
    */
   private handlePointerMove(event: FederatedPointerEvent): void {
     const worldPos = this.screenToWorld(event.global.x, event.global.y)
@@ -246,13 +246,13 @@ export class EventService {
           width: this.initialBoundingBox.width,
           height: this.initialBoundingBox.height
         }
-        
+
         const { dx: snapDx, dy: snapDy } = this.alignment.checkAlignment(targetRect, this.draggedIds)
-        
+
         if (snapDx !== 0 || snapDy !== 0) {
-          console.log('[对齐调试] 检测到吸附:', { snapDx, snapDy, targetRect, draggedIds: this.draggedIds })
+          // console.log('[对齐调试] 检测到吸附:', { snapDx, snapDy, targetRect, draggedIds: this.draggedIds })
         }
-        
+
         dx += snapDx
         dy += snapDy
       }
@@ -280,8 +280,9 @@ export class EventService {
                   (child) => this.getElementIdByGraphic?.(child as Graphics) === id
                 ) as Graphics
                 if (graphic) {
-                  graphic.x = element.x + dx
-                  graphic.y = element.y + dy
+                  // Convert top-left position to center position for PIXI graphics
+                  graphic.x = element.x + dx + graphic.pivot.x
+                  graphic.y = element.y + dy + graphic.pivot.y
                 }
               }
             })
@@ -294,8 +295,9 @@ export class EventService {
                 (child) => this.getElementIdByGraphic?.(child as Graphics) === this.dragTargetId
               ) as Graphics
               if (graphic) {
-                graphic.x = element.x + dx
-                graphic.y = element.y + dy
+                // Convert top-left position to center position for PIXI graphics
+                graphic.x = element.x + dx + graphic.pivot.x
+                graphic.y = element.y + dy + graphic.pivot.y
               }
             }
           }

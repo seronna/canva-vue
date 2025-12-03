@@ -224,6 +224,11 @@ const startDrag = (event: MouseEvent) => {
 
   // 立即同步计算边界框，确保拖拽开始时位置正确
   cachedBoundingBox.value = calculateBoundingBox()
+  
+  // Force immediate recalculation to ensure latest element positions
+  requestAnimationFrame(() => {
+    cachedBoundingBox.value = calculateBoundingBox()
+  })
 
   isDragging.value = true
   dragStartPos.value = { x: event.clientX, y: event.clientY }
@@ -380,11 +385,6 @@ const stopDrag = () => {
     })
 
     elementsStore.moveElements(Array.from(idsToMove), totalOffset.value.x, totalOffset.value.y)
-
-    // Reset DOM image transforms after store update
-    // const viewport = canvasStore.viewport
-    // const canvasWidth = canvasStore.width || 800
-    // const canvasHeight = canvasStore.height || 600
 
     requestAnimationFrame(() => {
       selectedIds.value.forEach(id => {
