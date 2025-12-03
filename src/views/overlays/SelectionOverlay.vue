@@ -59,6 +59,7 @@ import { useDragSync } from '@/composables/useDragSync'
 import { useDragState } from '@/composables/useDragState'
 import { CoordinateTransform } from '@/cores/viewport/CoordinateTransform'
 import type { CanvasService } from '@/services/canvas/CanvasService'
+import { useAlignment } from '@/composables/useAlignment'
 
 const selectionStore = useSelectionStore()
 const elementsStore = useElementsStore()
@@ -68,6 +69,7 @@ const canvasStore = useCanvasStore()
 const canvasService = inject<CanvasService>('canvasService')
 const { syncDragPosition } = canvasService ? useDragSync(canvasService) : { syncDragPosition: () => {} }
 const { getDragState, startDrag: startGlobalDrag, updateDragOffset: updateGlobalDragOffset, endDrag: endGlobalDrag } = useDragState()
+const { checkAlignment, clearAlignment } = useAlignment()
 
 const selectedIds = computed(() => selectionStore.selectedIds)
 const isDragging = ref(false)
@@ -90,9 +92,21 @@ const cachedBoundingBox = ref<{ x: number; y: number; width: number; height: num
 const calculateBoundingBox = () => {
   if (selectedIds.value.length === 0) return null
 
-  const selectedElements = selectedIds.value
-    .map(id => elementsStore.getElementById(id))
-    .filter(el => el != null)
+  // 展开组合元素：使用其子元素参与边界框计算
+  const selectedElements = selectedIds.value.flatMap(id => {
+    const el = elementsStore.getElementById(id)
+    if (!el) return []
+
+    if (el.type === 'group' && 'children' in el && Array.isArray(el.children)) {
+      const children = el.children
+        .map(childId => elementsStore.getElementById(childId))
+        .filter(child => child != null)
+      // 如果组合没有有效子元素，退回到组合自身
+      return children.length > 0 ? children : [el]
+    }
+
+    return [el]
+  })
 
   if (selectedElements.length === 0) return null
 
@@ -242,10 +256,27 @@ const onDrag = (event: MouseEvent) => {
   const worldDx = screenDx / viewport.zoom
   const worldDy = screenDy / viewport.zoom
 
-  totalOffset.value = { x: worldDx, y: worldDy }
+  // 应用对齐吸附
+  let finalDx = worldDx
+  let finalDy = worldDy
 
-  // 立即更新全局拖拽偏移（世界坐标）
-  updateGlobalDragOffset({ x: worldDx, y: worldDy })
+  if (cachedBoundingBox.value) {
+    const targetRect = {
+      x: cachedBoundingBox.value.x + worldDx,
+      y: cachedBoundingBox.value.y + worldDy,
+      width: cachedBoundingBox.value.width,
+      height: cachedBoundingBox.value.height
+    }
+
+    const { dx: snapDx, dy: snapDy } = checkAlignment(targetRect, selectedIds.value)
+    finalDx += snapDx
+    finalDy += snapDy
+  }
+
+  totalOffset.value = { x: finalDx, y: finalDy }
+
+  // 立即更新全局拖拽偏移（世界坐标，包含吸附修正）
+  updateGlobalDragOffset({ x: finalDx, y: finalDy })
 
   // 使用 RAF 节流
   if (animationFrameId !== null) {
@@ -333,7 +364,18 @@ const stopDrag = () => {
 
   // 应用最终偏移到 Store
   if ((Math.abs(totalOffset.value.x) > 1 || Math.abs(totalOffset.value.y) > 1) && selectedIds.value.length > 0) {
-    elementsStore.moveElements(selectedIds.value, totalOffset.value.x, totalOffset.value.y)
+    // 如果选中的是组合元素，需要同时移动组合及其子元素
+    const idsToMove = new Set<string>()
+    selectedIds.value.forEach(id => {
+      const el = elementsStore.getElementById(id)
+      if (!el) return
+      idsToMove.add(id)
+      if (el.type === 'group' && 'children' in el && Array.isArray(el.children)) {
+        el.children.forEach(childId => idsToMove.add(childId))
+      }
+    })
+
+    elementsStore.moveElements(Array.from(idsToMove), totalOffset.value.x, totalOffset.value.y)
     elementsStore.saveToLocal()
 
     // Reset DOM image transforms after store update
@@ -366,6 +408,7 @@ const stopDrag = () => {
 
   // 结束全局拖拽状态
   endGlobalDrag()
+  clearAlignment()
 
   // 移除全局事件监听
   document.removeEventListener('mousemove', onDrag)
@@ -548,25 +591,67 @@ const stopResize = () => {
     const centerX = cachedBoundingBox.value.x + cachedBoundingBox.value.width / 2
     const centerY = cachedBoundingBox.value.y + cachedBoundingBox.value.height / 2
 
-    elementsStore.updateElements(selectedIds.value, (el) => {
-      let x, y
-      if (selectedIds.value.length > 1) {
-        // Multi-element: scale from center
+    // 展开组合：被选中的 group 以及其 children 一起参与缩放
+    const targetIds = new Set<string>()
+    selectedIds.value.forEach(id => {
+      const el = elementsStore.getElementById(id)
+      if (!el) return
+      targetIds.add(id)
+      if (el.type === 'group' && 'children' in el && Array.isArray(el.children)) {
+        el.children.forEach(childId => targetIds.add(childId))
+      }
+    })
+
+    const allTargetIds = Array.from(targetIds)
+
+    elementsStore.updateElements(allTargetIds, (el) => {
+      const isMulti = allTargetIds.length > 1
+      const isCircle = el.type === 'shape' && 'shapeType' in el && el.shapeType === 'circle'
+
+      let x = el.x
+      let y = el.y
+      let newWidth = el.width * scaleX
+      let newHeight = el.height * scaleY
+
+      if (isMulti) {
+        // 多元素统一绕中心缩放（包括组合自身和其子元素）
         const relX = el.x + el.width / 2 - centerX
         const relY = el.y + el.height / 2 - centerY
-        x = centerX + relX * scaleX - el.width * scaleX / 2
-        y = centerY + relY * scaleY - el.height * scaleY / 2
+
+        if (isCircle) {
+          // 圆形：使用统一缩放比例，保持宽高一致
+          const uniformScale = Math.max(scaleX, scaleY)
+          const newSize = el.width * uniformScale
+          const newCenterX = centerX + relX * uniformScale
+          const newCenterY = centerY + relY * uniformScale
+
+          x = newCenterX - newSize / 2
+          y = newCenterY - newSize / 2
+          newWidth = newSize
+          newHeight = newSize
+        } else {
+          x = centerX + relX * scaleX - (el.width * scaleX) / 2
+          y = centerY + relY * scaleY - (el.height * scaleY) / 2
+        }
       } else {
-        // Single element: scale from corner
-        x = el.x
-        y = el.y
+        // 单元素缩放（保留原逻辑）
         if (resizeHandle.value.includes('l')) x += el.width * (1 - scaleX)
         if (resizeHandle.value.includes('t')) y += el.height * (1 - scaleY)
+
+        if (isCircle) {
+          // 单个圆形缩放时，同样保持宽高一致
+          const uniformScale = Math.max(scaleX, scaleY)
+          const newSize = el.width * uniformScale
+          // 以当前左上角为基准，不改变锚点
+          newWidth = newSize
+          newHeight = newSize
+        }
       }
+
       el.x = x
       el.y = y
-      el.width = el.width * scaleX
-      el.height = el.height * scaleY
+      el.width = newWidth
+      el.height = newHeight
     })
     elementsStore.saveToLocal()
     cachedBoundingBox.value = calculateBoundingBox()
@@ -640,10 +725,6 @@ const onRotate = (e: MouseEvent) => {
   animationFrameId = requestAnimationFrame(() => {
     if (!cachedBoundingBox.value) return
 
-    const viewport = canvasStore.viewport
-    const canvasWidth = canvasStore.width || 800
-    const canvasHeight = canvasStore.height || 600
-
     // Update selection box immediately
     const box = selectedIds.value.length === 1 ? singleBoxRef.value : multiBoxRef.value
     if (box && boundingBox.value) {
@@ -682,25 +763,14 @@ const onRotate = (e: MouseEvent) => {
             imgEl.style.height = `${el.height}px`
           }
         } else if (el.type === 'text') {
-          // Update DOM text element with rotation
+          // Update DOM text element with rotation - Text uses world coordinates like images
           const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
           if (textEl) {
-            // Calculate element center in world coordinates
-            const elWorldCenterX = el.x + el.width / 2
-            const elWorldCenterY = el.y + el.height / 2
-
-            // Convert to screen coordinates
-            const screenCenter = CoordinateTransform.worldToScreen(
-              elWorldCenterX,
-              elWorldCenterY,
-              viewport,
-              canvasWidth,
-              canvasHeight
-            )
-
-            // Apply transform with center-based positioning and rotation
+            // Text elements are positioned in world coordinates with transform-origin at center
             textEl.style.transformOrigin = '50% 50%'
-            textEl.style.transform = `translate3d(${screenCenter.x}px, ${screenCenter.y}px, 0) rotate(${newRotation}rad)`
+            textEl.style.transform = `translate3d(${el.x}px, ${el.y}px, 0) rotate(${newRotation}rad)`
+            textEl.style.width = `${el.width}px`
+            textEl.style.height = `${el.height}px`
           }
         } else {
           // Update PIXI Graphics (shapes) - they're in world coordinates
@@ -744,11 +814,6 @@ const stopRotate = () => {
     })
     elementsStore.saveToLocal()
 
-    // Reset elements to their final stored rotation values
-    const viewport = canvasStore.viewport
-    const canvasWidth = canvasStore.width || 800
-    const canvasHeight = canvasStore.height || 600
-
     requestAnimationFrame(() => {
       if (canvasService) {
         selectedIds.value.forEach(id => {
@@ -765,19 +830,13 @@ const stopRotate = () => {
               imgEl.style.height = `${el.height}px`
             }
           } else if (el.type === 'text') {
-            // Reset DOM text element to final rotation
+            // Reset DOM text element to final rotation - Text uses world coordinates
             const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
             if (textEl) {
-              const elWorldCenterX = el.x + el.width / 2
-              const elWorldCenterY = el.y + el.height / 2
-              const screenCenter = CoordinateTransform.worldToScreen(
-                elWorldCenterX,
-                elWorldCenterY,
-                viewport,
-                canvasWidth,
-                canvasHeight
-              )
-              textEl.style.transform = `translate3d(${screenCenter.x}px, ${screenCenter.y}px, 0) rotate(${el.rotation || 0}rad)`
+              textEl.style.transformOrigin = '50% 50%'
+              textEl.style.transform = `translate3d(${el.x}px, ${el.y}px, 0) rotate(${el.rotation || 0}rad)`
+              textEl.style.width = `${el.width}px`
+              textEl.style.height = `${el.height}px`
             }
           } else {
             // Reset PIXI Graphics to final rotation

@@ -3,7 +3,7 @@
     class="image-element"
     :style="containerStyle"
     :data-element-id="element.id"
-    @mousedown="handleMouseDown"
+    @mousedown="onMouseDown"
   >
     <img
       :src="element.src"
@@ -19,6 +19,8 @@ import { computed } from 'vue'
 import type { ImageElement } from '@/cores/types/element'
 import { useElementDrag } from '@/composables/useElementDrag'
 import { useDragState } from '@/composables/useDragState'
+import { useElementsStore } from '@/stores/elements'
+import { useSelectionStore } from '@/stores/selection'
 
 const props = defineProps<{
   element: ImageElement
@@ -27,6 +29,21 @@ const props = defineProps<{
 // 使用拖拽 composable
 const { handleMouseDown, isDragging } = useElementDrag(props.element.id)
 const { getDragState } = useDragState()
+const elementsStore = useElementsStore()
+const selectionStore = useSelectionStore()
+
+// 包装一层，避免组合内子元素被直接拖拽 / 选中
+const onMouseDown = (e: MouseEvent) => {
+  const el = elementsStore.getElementById(props.element.id)
+  if (el && el.parentGroup) {
+    // 点击组合内图片时，选中其父组合，而不是图片本身
+    e.stopPropagation()
+    e.preventDefault()
+    selectionStore.selectElement(el.parentGroup)
+    return
+  }
+  handleMouseDown(e)
+}
 
 // 容器样式 - 使用 transform3d 启用 GPU 加速
 const containerStyle = computed(() => {
@@ -37,7 +54,7 @@ const containerStyle = computed(() => {
   let x = props.element.x
   let y = props.element.y
 
-  // 如果在全局拖拽中且不是自己发起的拖拽，应用拖拽偏移
+  // 在多选拖拽中，如果不是当前拖拽的元素，应用全局偏移
   if (isInGlobalDrag && !isDragging.value && dragState) {
     x += dragState.offset.x
     y += dragState.offset.y
