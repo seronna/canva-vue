@@ -113,7 +113,31 @@ const getExpandedIds = (ids: string[]): string[] => {
   return Array.from(expanded)
 }
 
-// 计算选中元素的组合边界框
+/**
+ * 计算旋转后矩形的四个角点
+ */
+const getRotatedCorners = (x: number, y: number, width: number, height: number, rotation: number) => {
+  const centerX = x + width / 2
+  const centerY = y + height / 2
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  
+  // 四个角点相对于中心的坐标
+  const corners = [
+    { x: -width / 2, y: -height / 2 },
+    { x: width / 2, y: -height / 2 },
+    { x: width / 2, y: height / 2 },
+    { x: -width / 2, y: height / 2 }
+  ]
+  
+  // 旋转并转换到世界坐标
+  return corners.map(corner => ({
+    x: centerX + corner.x * cos - corner.y * sin,
+    y: centerY + corner.x * sin + corner.y * cos
+  }))
+}
+
+// 计算选中元素的组合边界框（考虑旋转）
 const calculateBoundingBox = () => {
   if (selectedIds.value.length === 0) return null
 
@@ -135,17 +159,46 @@ const calculateBoundingBox = () => {
 
   if (selectedElements.length === 0) return null
 
-  // 计算所有选中元素的组合边界
+  // 计算所有选中元素的组合边界（考虑旋转）
   let minX = Infinity
   let minY = Infinity
   let maxX = -Infinity
   let maxY = -Infinity
 
   selectedElements.forEach(el => {
-    minX = Math.min(minX, el.x)
-    minY = Math.min(minY, el.y)
-    maxX = Math.max(maxX, el.x + el.width)
-    maxY = Math.max(maxY, el.y + el.height)
+    // 对于单个非组合元素，边界框不考虑旋转（选择框会旋转）
+    // 对于组合元素或多选，边界框考虑旋转（选择框不旋转）
+    const isSingleNonGroup = selectedIds.value.length === 1 && 
+                             selectedElements.length === 1 && 
+                             el.type !== 'group'
+    
+    if (isSingleNonGroup) {
+      // 单个非组合元素：边界框不考虑旋转，选择框会旋转
+      minX = Math.min(minX, el.x)
+      minY = Math.min(minY, el.y)
+      maxX = Math.max(maxX, el.x + el.width)
+      maxY = Math.max(maxY, el.y + el.height)
+    } else {
+      // 组合元素或多选：边界框考虑旋转
+      const rotation = el.rotation || 0
+      
+      if (rotation === 0) {
+        // 未旋转，直接使用轴对齐边界框
+        minX = Math.min(minX, el.x)
+        minY = Math.min(minY, el.y)
+        maxX = Math.max(maxX, el.x + el.width)
+        maxY = Math.max(maxY, el.y + el.height)
+      } else {
+        // 已旋转，计算旋转后的四个角点
+        const corners = getRotatedCorners(el.x, el.y, el.width, el.height, rotation)
+        corners.forEach(corner => {
+          minX = Math.min(minX, corner.x)
+          minY = Math.min(minY, corner.y)
+          maxX = Math.max(maxX, corner.x)
+          maxY = Math.max(maxY, corner.y)
+        })
+      }
+    }
   })
 
   return {
@@ -203,9 +256,14 @@ const worldBoundingBox = computed(() => {
 })
 
 // Get rotation for selection box
+// 注意：对于组合元素，边界框已经考虑了旋转，所以选择框不应该再旋转
 const getSelectionRotation = () => {
   if (selectedIds.value.length === 1 && selectedIds.value[0]) {
     const el = elementsStore.getElementById(selectedIds.value[0])
+    // 如果是组合元素，边界框已经考虑了旋转，返回 0
+    if (el?.type === 'group') {
+      return 0
+    }
     return el?.rotation || 0
   }
   return 0
@@ -647,9 +705,21 @@ const stopRotate = () => {
       if (canvasService) {
         resetElementsToFinalRotation(selectedIds.value)
       }
+      
+      // 清除直接设置的 transform，让 Vue 的响应式绑定生效
+      if (boxRef) {
+        boxRef.style.transform = ''
+      }
+      
+      // 重新计算边界框（在元素位置更新后）
+      cachedBoundingBox.value = calculateBoundingBox()
     })
-
-    // Update cached bounding box after rotation
+  } else {
+    // 即使没有旋转，也要清除直接设置的 transform
+    if (boxRef) {
+      boxRef.style.transform = ''
+    }
+    // 重新计算边界框
     cachedBoundingBox.value = calculateBoundingBox()
   }
 
