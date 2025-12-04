@@ -6,11 +6,19 @@ import { useSelectionStore } from './selection'
 
 const storage = new LocalStorage('elements_')
 const STORAGE_KEY = 'list'
+const CLIPBOARD_KEY = 'clipboard'
+
+// 定义 clipboard 元素的类型（包含临时属性）
+interface ClipboardElement extends Omit<AnyElement, 'id' | 'createdAt' | 'updatedAt' | 'parentGroup'> {
+  __originalId: string
+  __isGroup: boolean
+  __parentGroupId?: string
+}
 
 export const useElementsStore = defineStore('elements', {
   state: () => ({
     elements: [] as AnyElement[],
-    clipboard: [] as Omit<AnyElement, 'id' | 'createdAt' | 'updatedAt'>[],
+    clipboard: [] as ClipboardElement[],
   }),
 
   getters: {
@@ -32,6 +40,8 @@ export const useElementsStore = defineStore('elements', {
     /** 初始化：从 LocalStorage 读取 */
     loadFromLocal() {
       this.elements = storage.get<AnyElement[]>(STORAGE_KEY, [])
+      // 恢复 clipboard 数据
+      this.clipboard = storage.get<ClipboardElement[]>(CLIPBOARD_KEY, [])
       // 将当前加载的状态作为初始快照推入历史，确保刷新后首次操作可被撤销
       try {
         const history = useHistoryStore()
@@ -386,6 +396,9 @@ export const useElementsStore = defineStore('elements', {
         }
         return copy
       })
+      
+      // 保存 clipboard 到 localStorage
+      storage.set(CLIPBOARD_KEY, this.clipboard)
     },
 
     /** 粘贴元素 */
@@ -460,7 +473,7 @@ export const useElementsStore = defineStore('elements', {
       
       // 第三步：计算组合的偏移量（但不创建组合元素）
       const groupOffsetMap = new Map<string, { originalX: number; originalY: number; offsetX: number; offsetY: number }>()
-      groupElements.forEach(({ clipboardEl, originalId }) => {
+      groupElements.forEach(({ clipboardEl, originalId, index }) => {
         // 计算组合的新位置
         let newX: number;
         let newY: number;
