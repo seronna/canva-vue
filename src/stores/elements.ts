@@ -92,8 +92,9 @@ export const useElementsStore = defineStore('elements', {
         Promise.resolve().then(() => {
           try {
             // 若你使用 storage.set，请改成 storage.set(STORAGE_KEY, this.elements)
-            const json = JSON.stringify(this.elements)
-            localStorage.setItem(STORAGE_KEY, json)
+            // const json = JSON.stringify(this.elements)
+            // localStorage.setItem(STORAGE_KEY, json)
+            storage.set(STORAGE_KEY, this.elements)
           } catch (err) {
             console.error("saveToLocal failed:", err)
           }
