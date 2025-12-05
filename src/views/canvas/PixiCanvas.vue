@@ -140,7 +140,7 @@ const worldContainerStyle = computed(() => {
     width: '100%',
     height: '100%',
     transformOrigin: '0 0',
-    transform: `translate(${translateX}px, ${translateY}px) scale(${v.zoom}) rotate(${v.rotation}rad)`
+    transform: `translate(${translateX}px, ${translateY}px) scale(${v.zoom})`
   }
 })
 

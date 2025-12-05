@@ -7,7 +7,8 @@
  * 3. 计算可见区域边界
  * 4. 支持缩放和平移变换
  */
-import type { Point, ViewportState, VisibleBounds } from '../types/canvas'
+import type { ViewportState, VisibleBounds } from '../types/canvas'
+import type { Point } from '../types/element'
 
 export class CoordinateTransform {
     /**
@@ -34,20 +35,9 @@ export class CoordinateTransform {
         const scaledX = centerX / viewport.zoom
         const scaledY = centerY / viewport.zoom
 
-        // 3. 处理旋转（如果有）
-        let worldX = scaledX
-        let worldY = scaledY
-
-        if (viewport.rotation !== 0) {
-            const cos = Math.cos(-viewport.rotation)
-            const sin = Math.sin(-viewport.rotation)
-            worldX = scaledX * cos - scaledY * sin
-            worldY = scaledX * sin + scaledY * cos
-        }
-
-        // 4. 加上相机在世界中的位置
-        worldX += viewport.x
-        worldY += viewport.y
+        // 3. 加上相机在世界中的位置
+        const worldX = scaledX + viewport.x
+        const worldY = scaledY + viewport.y
 
         return { x: worldX, y: worldY }
     }
@@ -69,24 +59,14 @@ export class CoordinateTransform {
         viewportHeight: number
     ): Point {
         // 1. 转换为相对于相机的坐标
-        let relativeX = worldX - viewport.x
-        let relativeY = worldY - viewport.y
+        const relativeX = worldX - viewport.x
+        const relativeY = worldY - viewport.y
 
-        // 2. 处理旋转（如果有）
-        if (viewport.rotation !== 0) {
-            const cos = Math.cos(viewport.rotation)
-            const sin = Math.sin(viewport.rotation)
-            const rotatedX = relativeX * cos - relativeY * sin
-            const rotatedY = relativeX * sin + relativeY * cos
-            relativeX = rotatedX
-            relativeY = rotatedY
-        }
-
-        // 3. 应用缩放
+        // 2. 应用缩放
         const scaledX = relativeX * viewport.zoom
         const scaledY = relativeY * viewport.zoom
 
-        // 4. 转换为屏幕坐标（以视口中心为原点 -> 以左上角为原点）
+        // 3. 转换为屏幕坐标（以视口中心为原点 -> 以左上角为原点）
         const screenX = scaledX + viewportWidth / 2
         const screenY = scaledY + viewportHeight / 2
 

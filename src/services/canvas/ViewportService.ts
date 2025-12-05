@@ -10,8 +10,9 @@
  * 4. 边界限制和约束
  * 5. 动画过渡效果
  */
-import type { ViewportState, ViewportConfig, Point, VisibleBounds, Rectangle } from '@/cores/types/canvas'
+import type { ViewportState, ViewportConfig, VisibleBounds, Rectangle } from '@/cores/types/canvas'
 import { CoordinateTransform } from '@/cores/viewport/CoordinateTransform'
+import type { Point } from '../../cores/types/element'
 
 export class ViewportService {
   private viewport: ViewportState
@@ -44,8 +45,7 @@ export class ViewportService {
     this.viewport = {
       x: 0,
       y: 0,
-      zoom: this.config.defaultZoom,
-      rotation: 0
+      zoom: this.config.defaultZoom
     }
   }
 
@@ -259,7 +259,6 @@ export class ViewportService {
     this.viewport.x = 0
     this.viewport.y = 0
     this.viewport.zoom = this.config.defaultZoom
-    this.viewport.rotation = 0
   }
 
   /**
