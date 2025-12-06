@@ -58,6 +58,7 @@ import { useCanvasStore } from '@/stores/canvas'
 import { useDragSync } from '@/composables/useDragSync'
 import { useDragState } from '@/composables/useDragState'
 import { useRotate } from '@/composables/useRotate'
+import { useGuidelinesStore } from '@/stores/guidelines'
 import { useResize } from '@/composables/useResize'
 import { CoordinateTransform } from '@/cores/viewport/CoordinateTransform'
 import type { CanvasService } from '@/services/canvas/CanvasService'
@@ -73,6 +74,7 @@ const canvasService = inject<CanvasService>('canvasService')
 const { syncDragPosition } = canvasService ? useDragSync(canvasService) : { syncDragPosition: () => {} }
 const { getDragState, startDrag: startGlobalDrag, updateDragOffset: updateGlobalDragOffset, endDrag: endGlobalDrag, startRotate: startGlobalRotate, endRotate: endGlobalRotate, getRotateState } = useDragState()
 const { updateElementRotation, applyRotationToStore, resetElementsToFinalRotation } = useRotate(canvasService || null)
+const guidelinesStore = useGuidelinesStore()
 const { updateElementsResize, applyResizeToStore, resetGraphicsAfterResize, updateSelectionBox } = useResize(canvasService || null)
 const { checkAlignment, clearAlignment } = useAlignment()
 
@@ -271,6 +273,19 @@ const getSelectionRotation = () => {
     return el?.rotation || 0
   }
   return 0
+}
+
+// 旋转吸附阈值（弧度），约等于 4°
+const ROTATION_SNAP_THRESHOLD = Math.PI / 45
+
+// 将角度吸附到最接近的 90° 倍数（含 0°），仅在阈值内触发
+const snapRotation = (angleRad: number): number => {
+  const step = Math.PI / 2 // 90°
+  const nearest = Math.round(angleRad / step) * step
+  if (Math.abs(angleRad - nearest) <= ROTATION_SNAP_THRESHOLD) {
+    return nearest
+  }
+  return angleRad
 }
 // 转换为屏幕坐标的边界框（用于CSS渲染）
 const boundingBox = computed(() => {
@@ -671,7 +686,13 @@ const onRotate = (e: MouseEvent) => {
 
       // Get current rotation and apply the delta
       const currentRotation = getSelectionRotation()
-      const newRotation = currentRotation + rotationAngle.value
+      let newRotation = currentRotation + rotationAngle.value
+
+      // 旋转吸附：对齐模式下吸附到 0/90° 倍数
+      if (guidelinesStore.isSnapEnabled) {
+        newRotation = snapRotation(newRotation)
+        rotationAngle.value = newRotation - currentRotation
+      }
 
       // Apply transform with rotation (selection box is already positioned in screen coords)
       box.style.transform = `translate3d(${boundingBox.value.x}px, ${boundingBox.value.y}px, 0) rotate(${newRotation}rad)`
