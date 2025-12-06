@@ -70,18 +70,22 @@ export function useResize(canvasService: CanvasService | null | undefined) {
       if (el.type === 'image') {
         const imgEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
         if (imgEl) {
+          const newWidth = baseWidth * scaleX
+          const newHeight = baseHeight * scaleY
           imgEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${el.rotation || 0}rad)`
-          imgEl.style.transformOrigin = 'center center'
-          imgEl.style.width = `${baseWidth * scaleX}px`
-          imgEl.style.height = `${baseHeight * scaleY}px`
+          imgEl.style.transformOrigin = `${newWidth / 2}px ${newHeight / 2}px`
+          imgEl.style.width = `${newWidth}px`
+          imgEl.style.height = `${newHeight}px`
         }
       } else if (el.type === 'text') {
         const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
         if (textEl) {
+          const newWidth = baseWidth * scaleX
+          const newHeight = baseHeight * scaleY
           textEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${el.rotation || 0}rad)`
-          textEl.style.transformOrigin = 'center center'
-          textEl.style.width = `${baseWidth * scaleX}px`
-          textEl.style.height = `${baseHeight * scaleY}px`
+          textEl.style.transformOrigin = `${newWidth / 2}px ${newHeight / 2}px`
+          textEl.style.width = `${newWidth}px`
+          textEl.style.height = `${newHeight}px`
         }
       } else {
         canvasService?.getRenderService().updateElementPosition(id, newX, newY)

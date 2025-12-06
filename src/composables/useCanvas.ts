@@ -125,6 +125,7 @@ export function useCanvas() {
 
     // 首次渲染元素
     canvasService.renderElements(elementsStore.elements)
+    console.timeEnd('打开页面到渲染完成用时：')
 
     // 监听元素数组引用变化（添加/删除/修改元素时 store 会创建新数组）
     watch(() => elementsStore.elements, () => {

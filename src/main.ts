@@ -1,4 +1,4 @@
-console.time('render-100-canvas')
+console.time('打开页面到渲染完成用时：')
 import './assets/main.css'
 
 import { createApp } from 'vue'

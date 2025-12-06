@@ -150,7 +150,6 @@ export class RenderService {
       }
     })
 
-    //console.timeEnd('render-100-canvas')
   }
 
   /**
