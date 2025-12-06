@@ -13,6 +13,7 @@
 import type { ViewportState, ViewportConfig, VisibleBounds, Rectangle } from '@/cores/types/canvas'
 import { CoordinateTransform } from '@/cores/viewport/CoordinateTransform'
 import type { Point } from '@/cores/types/element.ts'
+import { VIEWPORT_CONFIG } from '@/cores/config/appConfig'
 
 export class ViewportService {
   private viewport: ViewportState
@@ -20,21 +21,16 @@ export class ViewportService {
   private viewportWidth: number = 0
   private viewportHeight: number = 0
 
-  // 惯性滚动相关
-  private velocityX: number = 0
-  private velocityY: number = 0
-  private inertiaAnimationId: number | null = null
-
   // 动画相关
   private animationId: number | null = null
 
   constructor(config?: Partial<ViewportConfig>) {
     // 默认配置
     this.config = {
-      minZoom: 0.1,
-      maxZoom: 4,
-      defaultZoom: 1,
-      zoomStep: 0.1,
+      minZoom: VIEWPORT_CONFIG.zoom.min,
+      maxZoom: VIEWPORT_CONFIG.zoom.max,
+      defaultZoom: VIEWPORT_CONFIG.zoom.default,
+      zoomStep: VIEWPORT_CONFIG.zoom.step,
       ...config
     }
 
@@ -140,7 +136,7 @@ export class ViewportService {
   */
   handleWheel(deltaY: number, mouseX: number, mouseY: number): void {
     // 计算缩放因子（对数缩放，更平滑）
-    const zoomFactor = deltaY > 0 ? 0.9 : 1.1
+    const zoomFactor = deltaY > 0 ? VIEWPORT_CONFIG.zoomFactor.out : VIEWPORT_CONFIG.zoomFactor.in
     const newZoom = this.viewport.zoom * zoomFactor
 
     this.setZoom(newZoom, mouseX, mouseY)
@@ -149,7 +145,7 @@ export class ViewportService {
   /**
    * 缩放到指定级别（带动画）
    */
-  zoomTo(zoom: number, duration: number = 300, centerX?: number, centerY?: number): Promise<void> {
+  zoomTo(zoom: number, duration: number = VIEWPORT_CONFIG.animation.defaultDuration, centerX?: number, centerY?: number): Promise<void> {
     return new Promise(resolve => {
       const startZoom = this.viewport.zoom
       const startTime = Date.now()
@@ -184,7 +180,7 @@ export class ViewportService {
   /**
    * 平移到指定位置（带动画）
    */
-  panTo(x: number, y: number, duration: number = 300): Promise<void> {
+  panTo(x: number, y: number, duration: number = VIEWPORT_CONFIG.animation.defaultDuration): Promise<void> {
     return new Promise(resolve => {
       const startX = this.viewport.x
       const startY = this.viewport.y
@@ -219,7 +215,7 @@ export class ViewportService {
   /**
    * 适应内容到视口（Fit to View）
    */
-  fitToView(contentBounds: Rectangle, padding: number = 50): void {
+  fitToView(contentBounds: Rectangle, padding: number = VIEWPORT_CONFIG.fitToView.defaultPadding): void {
     if (!this.viewportWidth || !this.viewportHeight) return
 
     const availableWidth = this.viewportWidth - padding * 2
@@ -298,7 +294,8 @@ export class ViewportService {
    * 缓动函数
    */
   private easeInOutCubic(t: number): number {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+    const power = VIEWPORT_CONFIG.animation.easingPower
+    return t < 0.5 ? Math.pow(2, power - 1) * Math.pow(t, power) : 1 - Math.pow(-2 * t + 2, power) / 2
   }
 
   /**

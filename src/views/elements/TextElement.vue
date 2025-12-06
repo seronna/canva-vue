@@ -246,10 +246,27 @@ const handleMouseUp = (e: MouseEvent) => {
     const viewport = canvasService!.getViewportService().getViewport()
     const { dx: worldDx, dy: worldDy } = CoordinateTransform.screenDeltaToWorldDelta(screenDx,screenDy,viewport)
 
-    // 只在拖拽结束时更新 store
+    // 应用对齐吸附修正
+    let finalDx = worldDx
+    let finalDy = worldDy
+    
+    if (initialBoundingBox) {
+      const targetRect = {
+        x: initialBoundingBox.x + worldDx,
+        y: initialBoundingBox.y + worldDy,
+        width: initialBoundingBox.width,
+        height: initialBoundingBox.height
+      }
+
+      const { dx: snapDx, dy: snapDy } = checkAlignment(targetRect, draggedIds)
+      finalDx += snapDx
+      finalDy += snapDy
+    }
+
+    // 只在拖拽结束时更新 store（使用包含吸附修正的最终位置）
     elementsStore.updateTextElement(props.element.id, {
-      x: elementStartPos.value.x + worldDx,
-      y: elementStartPos.value.y + worldDy
+      x: elementStartPos.value.x + finalDx,
+      y: elementStartPos.value.y + finalDy
     })
     elementsStore.saveToLocal()
 
