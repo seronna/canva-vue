@@ -10,7 +10,7 @@ import { Application, FederatedPointerEvent } from 'pixi.js'
 import { RenderService } from './RenderService'
 import { ToolService, type ToolType } from './ToolService'
 import { EventService, type EventHandlers } from './EventService'
-import { ViewportService } from './ViewportService'
+import { ViewportService } from '@/services'
 import { useCanvasStore } from '@/stores/canvas'
 import type { AnyElement } from '@/cores/types/element'
 import type { ViewportConfig } from '@/cores/types/canvas'
@@ -187,20 +187,6 @@ export class CanvasService {
   }
 
   /**
-   * 获取当前工具
-   */
-  getTool(): ToolType {
-    return this.toolService.getTool()
-  }
-
-  /**
-   * 获取工具配置
-   */
-  getToolConfig(tool?: ToolType) {
-    return this.toolService.getToolConfig(tool)
-  }
-
-  /**
    * 计算元素创建位置
    */
   calculateCreatePosition(mouseX: number, mouseY: number, tool?: ToolType) {
@@ -215,13 +201,6 @@ export class CanvasService {
   }
 
   /**
-   * 直接更新元素位置（拖拽优化）
-   */
-  updateElementPosition(elementId: string, x: number, y: number): void {
-    this.renderService.updateElementPosition(elementId, x, y)
-  }
-
-  /**
    * 批量更新元素位置（拖拽优化）
    */
   batchUpdatePositions(updates: Array<{ id: string; x: number; y: number }>): void {
@@ -233,20 +212,6 @@ export class CanvasService {
    */
   updateGraphicStyle(elementId: string, element: AnyElement): void {
     this.renderService.updateGraphicStyle(elementId, element)
-  }
-
-  /**
-   * 获取工具服务
-   */
-  getToolService(): ToolService {
-    return this.toolService
-  }
-
-  /**
-   * 获取事件服务
-   */
-  getEventService(): EventService {
-    return this.eventService
   }
 
   /**

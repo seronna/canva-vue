@@ -16,6 +16,7 @@ import { useAlignment } from './useAlignment'
 import { createBBoxGeometry } from './useAlignmentHelpers'
 import type { CanvasService } from '@/services/canvas/CanvasService'
 import { CoordinateTransform } from '@/cores/viewport/CoordinateTransform'
+import { performanceMonitor, MetricType } from '@/cores/monitoring'
 
 export function useElementDrag(elementId: string) {
   const elementsStore = useElementsStore()
@@ -121,6 +122,9 @@ export function useElementDrag(elementId: string) {
     }
 
     // console.log('[对齐调试-DOM] 开始拖拽:', { elementId, draggedIds, initialBoundingBox })
+
+    // 监控拖拽性能
+    performanceMonitor.startTimer(`drag-${elementId}`)
 
     // 通知全局拖拽状态开始（传入初始边界框）
     isDragging.value = true
@@ -276,6 +280,11 @@ export function useElementDrag(elementId: string) {
     currentElement = null
     initialBoundingBox = null
     draggedIds = []
+
+    // 记录拖拽性能
+    performanceMonitor.endTimer(`drag-${elementId}`, MetricType.INTERACTION, {
+      hasMoved: Math.abs(totalOffset.value.x) > 0.5 || Math.abs(totalOffset.value.y) > 0.5
+    })
 
     // 结束全局拖拽状态
     endGlobalDrag()

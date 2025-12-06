@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import { useCanvasStore } from '@/stores/canvas'
 import type { ViewportService } from '@/services/canvas/ViewportService'
 import type { ViewportState, Rectangle } from '@/cores/types/canvas'
+import { VIEWPORT_CONFIG } from '@/cores/config/appConfig'
 
 export function useViewport(viewportService: ViewportService) {
     const canvasStore = useCanvasStore()
@@ -147,7 +148,7 @@ export function useViewport(viewportService: ViewportService) {
     /**
      * 缩放到选中的元素
      */
-    const zoomToElements = (elements: Array<{ x: number; y: number; width: number; height: number }>, padding = 50) => {
+    const zoomToElements = (elements: Array<{ x: number; y: number; width: number; height: number }>, padding = VIEWPORT_CONFIG.fitToView.defaultPadding) => {
         if (elements.length === 0) return
 
         // 计算所有元素的边界框

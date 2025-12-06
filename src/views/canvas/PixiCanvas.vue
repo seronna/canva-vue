@@ -9,6 +9,9 @@ View层 - 画布容器组件
     <image-toolbar />
     <selection-overlay />
     <mini-map />
+    
+    <!-- 性能监控浮动面板 -->
+    <performance-panel ref="performancePanelRef" />
 
     <!-- 文本编辑工具栏 - 使用屏幕坐标，所以放在外面 -->
     <text-editor-toolbar
@@ -72,6 +75,7 @@ import ImageElement from '../../views/elements/ImageElement.vue'
 import TextElement from '../../views/elements/TextElement.vue'
 import TextEditor from '../../views/overlays/TextEditor.vue'
 import TextEditorToolbar from '../../views/ui/TextEditorToolbar.vue'
+import PerformancePanel from '../overlays/PerformancePanel.vue'
 import { useCanvas } from '@/composables/useCanvas'
 import { useElementsStore } from '@/stores/elements'
 import { useCanvasStore } from '@/stores/canvas'
@@ -80,6 +84,7 @@ import type { ImageElement as ImageElementType, TextElement as TextElementType }
 const { container, canvasService } = useCanvas()
 const elementsStore = useElementsStore()
 const canvasStore = useCanvasStore()
+const performancePanelRef = ref<InstanceType<typeof PerformancePanel>>()
 const { viewport } = storeToRefs(canvasStore)
 
 // 平移状态（根据当前工具判断）
@@ -153,6 +158,12 @@ const handleTextDoubleClick = (elementId: string) => {
 const handleKeyDown = (e: KeyboardEvent) => {
   if (e.key === 'Escape' && editingTextId.value) {
     editingTextId.value = null
+  }
+  
+  // Ctrl+M 切换性能面板
+  if (e.ctrlKey && e.key === 'm') {
+    e.preventDefault()
+    performancePanelRef.value?.toggle()
   }
 }
 
