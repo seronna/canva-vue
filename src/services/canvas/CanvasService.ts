@@ -82,7 +82,8 @@ export class CanvasService {
   private bindToolPreview(app: Application): void {
     app.stage.on('pointermove', (event: FederatedPointerEvent) => {
       // 将屏幕坐标转换为世界坐标
-      const worldPos = this.eventService.screenToWorld(event.global.x, event.global.y)
+      //const worldPos = this.eventService.screenToWorld(event.global.x, event.global.y)
+      const worldPos = this.viewportService.screenToWorld(event.global.x, event.global.y)
       this.toolService.updatePreview(event, worldPos.x, worldPos.y)
     })
   }
@@ -227,7 +228,6 @@ export class CanvasService {
   destroy(): void {
     this.eventService.destroy()
     this.toolService.destroy()
-    this.viewportService.destroy()
     this.renderService.destroy()
     this.initialized = false
   }
