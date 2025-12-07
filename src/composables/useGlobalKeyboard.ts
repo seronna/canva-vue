@@ -105,16 +105,6 @@ export function useGlobalKeyboard(options: GlobalKeyboardOptions) {
             key: 'Delete',
             description: '删除选中的元素',
             handler: (event) => {
-                // 检查焦点是否在编辑器内
-                const target = event.target as HTMLElement
-                const isInEditor = target.closest('[data-editor-active]') || 
-                                  target.closest('.tiptap-editor') ||
-                                  editingTextId.value
-                
-                if (isInEditor) {
-                    return // 不阻止事件，让编辑器处理
-                }
-                
                 event.preventDefault()
                 deleteSelectedElements()
             }
@@ -125,16 +115,6 @@ export function useGlobalKeyboard(options: GlobalKeyboardOptions) {
             key: 'Backspace',
             description: '删除选中的元素',
             handler: (event) => {
-                // 检查焦点是否在编辑器内
-                const target = event.target as HTMLElement
-                const isInEditor = target.closest('[data-editor-active]') || 
-                                  target.closest('.tiptap-editor') ||
-                                  editingTextId.value
-                
-                if (isInEditor) {
-                    return // 不阻止事件，让编辑器处理
-                }
-                
                 event.preventDefault()
                 deleteSelectedElements()
             }
