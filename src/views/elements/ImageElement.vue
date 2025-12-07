@@ -183,6 +183,20 @@ const handleGroupDragUp = (e: MouseEvent) => {
 // 包装一层，避免组合内子元素被直接拖拽 / 选中
 const onMouseDown = (e: MouseEvent) => {
   const el = elementsStore.getElementById(props.element.id)
+  
+  // 检查是否已经在多选拖拽中（此时不应该启动元素自己的拖拽）
+  const dragState = getDragState().value
+  const isInMultiSelectDrag = dragState?.isDragging && 
+                               dragState.elementIds.length > 1 &&
+                               dragState.elementIds.includes(props.element.id)
+  
+  if (isInMultiSelectDrag) {
+    // 在多选拖拽中，阻止元素自己的拖拽逻辑，由 SelectionOverlay 统一处理
+    e.stopPropagation()
+    e.preventDefault()
+    return
+  }
+  
   if (el && el.parentGroup) {
     // 点击组合内图片时，选中其父组合，并启动组合拖拽
     e.stopPropagation()

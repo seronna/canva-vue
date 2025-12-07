@@ -22,7 +22,7 @@ export function useElementDrag(elementId: string) {
   const elementsStore = useElementsStore()
   const selectionStore = useSelectionStore()
   const canvasService = inject<CanvasService>('canvasService')
-  const { startDrag: startGlobalDrag, updateDragOffset, endDrag: endGlobalDrag } = useDragState()
+  const { startDrag: startGlobalDrag, updateDragOffset, endDrag: endGlobalDrag, getDragState } = useDragState()
   const { checkAlignment, clearAlignment } = useAlignment()
 
   const isDragging = ref(false)
@@ -47,6 +47,17 @@ export function useElementDrag(elementId: string) {
     // 先记录拖拽起始位置和元素初始状态
     const element = elementsStore.getElementById(elementId)
     if (!element) return
+
+    // 检查是否已经在多选拖拽中（此时不应该启动元素自己的拖拽）
+    const dragState = getDragState().value
+    const isInMultiSelectDrag = dragState?.isDragging && 
+                                 dragState.elementIds.length > 1 &&
+                                 dragState.elementIds.includes(elementId)
+    
+    if (isInMultiSelectDrag) {
+      // 在多选拖拽中，阻止元素自己的拖拽逻辑，由 SelectionOverlay 统一处理
+      return
+    }
 
     initialTransform = {
       x: element.x,
@@ -155,13 +166,9 @@ export function useElementDrag(elementId: string) {
     const viewport = canvasService!.getViewportService().getViewport()
     const { dx: worldDx, dy: worldDy } = CoordinateTransform.screenDeltaToWorldDelta(screenDx, screenDy, viewport)
 
-    totalOffset.value = { x: worldDx, y: worldDy }
-
-    // 立即更新全局拖拽偏移（世界坐标）
-    updateDragOffset({ x: worldDx, y: worldDy })
     // 1. 计算未吸附前的目标位置
-    let newX = initialTransform.x + worldDx
-    let newY = initialTransform.y + worldDy
+    let finalDx = worldDx
+    let finalDy = worldDy
 
     // 2. 计算吸附修正
     if (initialBoundingBox) {
@@ -173,25 +180,17 @@ export function useElementDrag(elementId: string) {
       }, initialBoundingBox.rotation)
 
       const { dx: snapDx, dy: snapDy } = checkAlignment(targetGeometry, draggedIds)
-
-      if (snapDx !== 0 || snapDy !== 0) {
-        // console.log('[对齐调试-DOM] 检测到吸附:', { snapDx, snapDy })
-      }
-
-      // 应用吸附修正
-      newX = initialTransform.x + worldDx + snapDx
-      newY = initialTransform.y + worldDy + snapDy
-
-      // 更新总偏移量（包含吸附）
-      totalOffset.value = {
-        x: newX - initialTransform.x,
-        y: newY - initialTransform.y
-      }
-    } else {
-      totalOffset.value = { x: worldDx, y: worldDy }
+      finalDx += snapDx
+      finalDy += snapDy
     }
 
-    // 立即更新全局拖拽偏移（不等待 RAF）
+    // 更新总偏移量（包含吸附）
+    totalOffset.value = {
+      x: finalDx,
+      y: finalDy
+    }
+
+    // 立即更新全局拖拽偏移（包含吸附修正，RAF 之外同步更新）
     updateDragOffset(totalOffset.value)
 
     // 使用 RAF 节流
@@ -202,10 +201,6 @@ export function useElementDrag(elementId: string) {
     animationFrameId = requestAnimationFrame(() => {
       const element = elementsStore.getElementById(elementId)
       if (!element) return
-
-      // Calculate new world position
-      // const newX = initialTransform.x + totalOffset.value.x
-      // const newY = initialTransform.y + totalOffset.value.y
 
       // 直接操作 DOM，使用 translate3d 启用 GPU 加速
       // Images have transform-origin: center center, so we need to position at top-left

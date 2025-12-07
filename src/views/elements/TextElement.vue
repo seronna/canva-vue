@@ -96,6 +96,20 @@ const handleMouseDown = (e: MouseEvent) => {
   elementRef.value = e.currentTarget as HTMLElement
 
   const el = elementsStore.getElementById(props.element.id)
+  
+  // 检查是否已经在多选拖拽中（此时不应该启动元素自己的拖拽）
+  const dragState = getDragState().value
+  const isInMultiSelectDrag = dragState?.isDragging && 
+                               dragState.elementIds.length > 1 &&
+                               dragState.elementIds.includes(props.element.id)
+  
+  if (isInMultiSelectDrag) {
+    // 在多选拖拽中，阻止元素自己的拖拽逻辑，由 SelectionOverlay 统一处理
+    e.stopPropagation()
+    e.preventDefault()
+    return
+  }
+  
   // 如果是组合内子元素，点击时选中其父组合，并启动组合拖拽
   if (el && el.parentGroup) {
     // 阻止事件传播，防止触发画布点击事件
@@ -194,30 +208,30 @@ const handleMouseMove = (e: MouseEvent) => {
 
   if (!isDragging.value) return
 
-  // 立即更新拖拽偏移（使用世界坐标）
-  updateDragOffset({ x: worldDx, y: worldDy })
+  // 计算吸附修正
+  let finalDx = worldDx
+  let finalDy = worldDy
+
+  if (initialBoundingBox) {
+    const targetGeometry = createBBoxGeometry({
+      x: initialBoundingBox.x + worldDx,
+      y: initialBoundingBox.y + worldDy,
+      width: initialBoundingBox.width,
+      height: initialBoundingBox.height
+    }, initialBoundingBox.rotation)
+
+    const { dx: snapDx, dy: snapDy } = checkAlignment(targetGeometry, draggedIds)
+    finalDx += snapDx
+    finalDy += snapDy
+  }
+
+  // 立即更新拖拽偏移（包含吸附修正，在 RAF 之外同步更新）
+  updateDragOffset({ x: finalDx, y: finalDy })
 
   // 使用 RAF 节流，避免频繁更新 DOM
   if (animationFrameId !== null) return
 
   animationFrameId = requestAnimationFrame(() => {
-    let finalDx = worldDx
-    let finalDy = worldDy
-
-    // 应用对齐吸附
-    if (initialBoundingBox) {
-      const targetGeometry = createBBoxGeometry({
-        x: initialBoundingBox.x + worldDx,
-        y: initialBoundingBox.y + worldDy,
-        width: initialBoundingBox.width,
-        height: initialBoundingBox.height
-      }, initialBoundingBox.rotation)
-
-      const { dx: snapDx, dy: snapDy } = checkAlignment(targetGeometry, draggedIds)
-      finalDx += snapDx
-      finalDy += snapDy
-    }
-
     const newX = elementStartPos.value.x + finalDx
     const newY = elementStartPos.value.y + finalDy
 
@@ -254,14 +268,14 @@ const handleMouseUp = (e: MouseEvent) => {
     let finalDy = worldDy
     
     if (initialBoundingBox) {
-      const targetRect = {
+      const targetGeometry = createBBoxGeometry({
         x: initialBoundingBox.x + worldDx,
         y: initialBoundingBox.y + worldDy,
         width: initialBoundingBox.width,
         height: initialBoundingBox.height
-      }
+      }, initialBoundingBox.rotation)
 
-      const { dx: snapDx, dy: snapDy } = checkAlignment(targetRect, draggedIds)
+      const { dx: snapDx, dy: snapDy } = checkAlignment(targetGeometry, draggedIds)
       finalDx += snapDx
       finalDy += snapDy
     }
