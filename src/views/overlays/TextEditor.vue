@@ -6,9 +6,11 @@
   <div
     v-if="isEditing && element"
     class="text-editor-overlay"
+    data-editor-active="true"
     :style="editorStyle"
     @mousedown.stop
     @click.stop
+    @keydown.stop
   >
     <EditorContent v-if="editor" :editor="editor as any" class="editor-content" />
   </div>
