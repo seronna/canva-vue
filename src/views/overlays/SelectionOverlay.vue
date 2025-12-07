@@ -120,7 +120,7 @@ const getRotatedCorners = (x: number, y: number, width: number, height: number, 
   const centerY = y + height / 2
   const cos = Math.cos(rotation)
   const sin = Math.sin(rotation)
-  
+
   // 四个角点相对于中心的坐标
   const corners = [
     { x: -width / 2, y: -height / 2 },
@@ -128,7 +128,7 @@ const getRotatedCorners = (x: number, y: number, width: number, height: number, 
     { x: width / 2, y: height / 2 },
     { x: -width / 2, y: height / 2 }
   ]
-  
+
   // 旋转并转换到世界坐标
   return corners.map(corner => ({
     x: centerX + corner.x * cos - corner.y * sin,
@@ -167,10 +167,10 @@ const calculateBoundingBox = () => {
   selectedElements.forEach(el => {
     // 对于单个非组合元素，边界框不考虑旋转（选择框会旋转）
     // 对于组合元素或多选，边界框考虑旋转（选择框不旋转）
-    const isSingleNonGroup = selectedIds.value.length === 1 && 
-                             selectedElements.length === 1 && 
+    const isSingleNonGroup = selectedIds.value.length === 1 &&
+                             selectedElements.length === 1 &&
                              el.type !== 'group'
-    
+
     if (isSingleNonGroup) {
       // 单个非组合元素：边界框不考虑旋转，选择框会旋转
       minX = Math.min(minX, el.x)
@@ -180,7 +180,7 @@ const calculateBoundingBox = () => {
     } else {
       // 组合元素或多选：边界框考虑旋转
       const rotation = el.rotation || 0
-      
+
       if (rotation === 0) {
         // 未旋转，直接使用轴对齐边界框
         minX = Math.min(minX, el.x)
@@ -507,7 +507,7 @@ const startResize = (e: MouseEvent, handle: string) => {
   isResizing.value = true
   resizeHandle.value = handle
   resizeStart.value = { x: e.clientX, y: e.clientY, w: cachedBoundingBox.value.width, h: cachedBoundingBox.value.height }
-  
+
   // 保存所有元素的初始位置（包括组合的子元素）
   initialElementPositions.clear()
   const expandedIds = getExpandedIds(selectedIds.value)
@@ -517,7 +517,7 @@ const startResize = (e: MouseEvent, handle: string) => {
       initialElementPositions.set(id, { x: el.x, y: el.y, width: el.width, height: el.height })
     }
   })
-  
+
   document.addEventListener('mousemove', onResize)
   document.addEventListener('mouseup', stopResize)
   e.preventDefault()
@@ -549,7 +549,11 @@ const onResize = (e: MouseEvent) => {
     const el = elementsStore.getElementById(id)
     return el?.type === 'shape' && 'shapeType' in el && el.shapeType === 'circle'
   })
-  if (selectedIds.value.length > 1 || isCircle) {
+  const isGroup = selectedIds.value.some(id => {
+    const el = elementsStore.getElementById(id)
+    return el?.type === 'group'
+  })
+  if (selectedIds.value.length > 1 || isCircle || isGroup) {
     const scaleX = w / resizeStart.value.w
     const scaleY = h / resizeStart.value.h
     const scale = Math.max(Math.abs(scaleX), Math.abs(scaleY))
@@ -590,7 +594,8 @@ const stopResize = () => {
   const scaleY = worldHeight / cachedBoundingBox.value.height
 
   if (Math.abs(scaleX - 1) > 0.01 || Math.abs(scaleY - 1) > 0.01) {
-    applyResizeToStore(selectedIds.value, cachedBoundingBox.value, scaleX, scaleY, resizeHandle.value)
+    console.log(selectedIds.value, '应用缩放到 Store:', scaleX, scaleY)
+    applyResizeToStore(selectedIds.value, cachedBoundingBox.value, scaleX, scaleY, resizeHandle.value, initialElementPositions)
     elementsStore.saveToLocal()
     cachedBoundingBox.value = calculateBoundingBox()
 
@@ -706,12 +711,12 @@ const stopRotate = () => {
       if (canvasService) {
         resetElementsToFinalRotation(selectedIds.value)
       }
-      
+
       // 清除直接设置的 transform，让 Vue 的响应式绑定生效
       if (boxRef) {
         boxRef.style.transform = ''
       }
-      
+
       // 重新计算边界框（在元素位置更新后）
       cachedBoundingBox.value = calculateBoundingBox()
     })

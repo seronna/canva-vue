@@ -63,7 +63,6 @@ export function useResize(canvasService: CanvasService | null | undefined) {
         // Single element: scale from corner
         newX = baseX
         newY = baseY
-        console.log(newX,newY)
         if (resizeHandle.includes('l')) newX += baseWidth * (1 - scaleX)
         if (resizeHandle.includes('t')) newY += baseHeight * (1 - scaleY)
       }
@@ -90,7 +89,6 @@ export function useResize(canvasService: CanvasService | null | undefined) {
         }
       } else {
         canvasService?.getRenderService().updateElementPosition(id, newX + baseWidth * scaleX / 2, newY + baseHeight * scaleY / 2)
-        console.log(newX, newY)
         const graphic = canvasService?.getRenderService().getGraphic(id)
         if (graphic) {
           graphic.scale.set(scaleX, scaleY)
@@ -105,42 +103,62 @@ export function useResize(canvasService: CanvasService | null | undefined) {
     cachedBoundingBox: { x: number; y: number; width: number; height: number },
     scaleX: number,
     scaleY: number,
-    resizeHandle: string
+    resizeHandle: string,
+    initialPositions?: Map<string, { x: number; y: number; width: number; height: number }>
   ) => {
     const centerX = cachedBoundingBox.x + cachedBoundingBox.width / 2
     const centerY = cachedBoundingBox.y + cachedBoundingBox.height / 2
+
+    // // Check if any selected element is a group
+    // const hasGroup = selectedIds.some(id => {
+    //   const el = elementsStore.getElementById(id)
+    //   return el?.type === 'group'
+    // })
 
     // Expand groups: selected groups and their children participate in scaling
     const targetIds = new Set<string>()
     selectedIds.forEach(id => {
       const el = elementsStore.getElementById(id)
       if (!el) return
-      targetIds.add(id)
       if (el.type === 'group' && 'children' in el && Array.isArray(el.children)) {
         el.children.forEach(childId => targetIds.add(childId))
+      }else if (el.type != 'group') {
+        // If the element is a child of a group, include the parent group as well
+        targetIds.add(id)
       }
     })
 
     const allTargetIds = Array.from(targetIds)
+    console.log(allTargetIds)
+    // For group elements, treat as multi-element (center-based scaling)
+    const isMulti = allTargetIds.length > 1
 
     elementsStore.updateElements(allTargetIds, (el) => {
-      const isMulti = allTargetIds.length > 1
+      // Skip updating group elements themselves
+      if (el.type === 'group') return
+
       const isCircle = el.type === 'shape' && 'shapeType' in el && el.shapeType === 'circle'
 
-      let x = el.x
-      let y = el.y
-      let newWidth = el.width * scaleX
-      let newHeight = el.height * scaleY
+      const initialPos = initialPositions?.get(el.id)
+      const baseX = initialPos?.x ?? el.x
+      const baseY = initialPos?.y ?? el.y
+      const baseWidth = initialPos?.width ?? el.width
+      const baseHeight = initialPos?.height ?? el.height
+
+      let x = baseX
+      let y = baseY
+      let newWidth = baseWidth * scaleX
+      let newHeight = baseHeight * scaleY
 
       if (isMulti) {
         // Multi-element scaling around center (including groups and their children)
-        const relX = el.x + el.width / 2 - centerX
-        const relY = el.y + el.height / 2 - centerY
+        const relX = baseX + baseWidth / 2 - centerX
+        const relY = baseY + baseHeight / 2 - centerY
 
         if (isCircle) {
           // Circle: use uniform scale to maintain aspect ratio
           const uniformScale = Math.max(scaleX, scaleY)
-          const newSize = el.width * uniformScale
+          const newSize = baseWidth * uniformScale
           const newCenterX = centerX + relX * uniformScale
           const newCenterY = centerY + relY * uniformScale
 
@@ -149,18 +167,18 @@ export function useResize(canvasService: CanvasService | null | undefined) {
           newWidth = newSize
           newHeight = newSize
         } else {
-          x = centerX + relX * scaleX - (el.width * scaleX) / 2
-          y = centerY + relY * scaleY - (el.height * scaleY) / 2
+          x = centerX + relX * scaleX - (baseWidth * scaleX) / 2
+          y = centerY + relY * scaleY - (baseHeight * scaleY) / 2
         }
       } else {
         // Single element scaling (preserve original logic)
-        if (resizeHandle.includes('l')) x += el.width * (1 - scaleX)
-        if (resizeHandle.includes('t')) y += el.height * (1 - scaleY)
+        if (resizeHandle.includes('l')) x += baseWidth * (1 - scaleX)
+        if (resizeHandle.includes('t')) y += baseHeight * (1 - scaleY)
 
         if (isCircle) {
           // Single circle scaling, maintain aspect ratio
           const uniformScale = Math.max(scaleX, scaleY)
-          const newSize = el.width * uniformScale
+          const newSize = baseWidth * uniformScale
           newWidth = newSize
           newHeight = newSize
         }
@@ -174,7 +192,20 @@ export function useResize(canvasService: CanvasService | null | undefined) {
   }
 
   const resetGraphicsAfterResize = (selectedIds: string[]) => {
+    const targetIds = new Set<string>()
     selectedIds.forEach(id => {
+      const el = elementsStore.getElementById(id)
+      if (!el) return
+      if (el.type === 'group' && 'children' in el && Array.isArray(el.children)) {
+        el.children.forEach(childId => targetIds.add(childId))
+      }else if (el.type != 'group') {
+        // If the element is a child of a group, include the parent group as well
+        targetIds.add(id)
+      }
+    })
+
+    const allTargetIds = Array.from(targetIds)
+    allTargetIds.forEach(id => {
       const el = elementsStore.getElementById(id)
       const graphic = canvasService?.getRenderService().getGraphic(id)
       if (graphic && el) {
