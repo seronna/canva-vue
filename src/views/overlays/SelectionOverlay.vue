@@ -21,10 +21,26 @@
       @mousedown="startDrag"
     >
       <!-- 四个角的控制点 -->
-      <div class="resize-handle top-left" @mousedown="startResize($event, 'tl')"></div>
-      <div class="resize-handle top-right" @mousedown="startResize($event, 'tr')"></div>
-      <div class="resize-handle bottom-left" @mousedown="startResize($event, 'bl')"></div>
-      <div class="resize-handle bottom-right" @mousedown="startResize($event, 'br')"></div>
+      <div
+        class="resize-handle top-left"
+        :style="{ cursor: getRotatedCursor('tl', getCurrentRotation()) }"
+        @mousedown="startResize($event)"
+      ></div>
+      <div
+        class="resize-handle top-right"
+        :style="{ cursor: getRotatedCursor('tr', getCurrentRotation()) }"
+        @mousedown="startResize($event)"
+      ></div>
+      <div
+        class="resize-handle bottom-left"
+        :style="{ cursor: getRotatedCursor('bl', getCurrentRotation()) }"
+        @mousedown="startResize($event)"
+      ></div>
+      <div
+        class="resize-handle bottom-right"
+        :style="{ cursor: getRotatedCursor('br', getCurrentRotation()) }"
+        @mousedown="startResize($event)"
+      ></div>
       <div class="rotate-handle" @mousedown="startRotate($event)"></div>
     </div>
 
@@ -41,10 +57,26 @@
       @mousedown="startDrag"
     >
       <!-- 四个角的控制点 -->
-      <div class="resize-handle top-left" @mousedown="startResize($event, 'tl')"></div>
-      <div class="resize-handle top-right" @mousedown="startResize($event, 'tr')"></div>
-      <div class="resize-handle bottom-left" @mousedown="startResize($event, 'bl')"></div>
-      <div class="resize-handle bottom-right" @mousedown="startResize($event, 'br')"></div>
+      <div
+        class="resize-handle top-left"
+        :style="{ cursor: getRotatedCursor('tl', 0) }"
+        @mousedown="startResize($event)"
+      ></div>
+      <div
+        class="resize-handle top-right"
+        :style="{ cursor: getRotatedCursor('tr', 0) }"
+        @mousedown="startResize($event)"
+      ></div>
+      <div
+        class="resize-handle bottom-left"
+        :style="{ cursor: getRotatedCursor('bl', 0) }"
+        @mousedown="startResize($event)"
+      ></div>
+      <div
+        class="resize-handle bottom-right"
+        :style="{ cursor: getRotatedCursor('br', 0) }"
+        @mousedown="startResize($event)"
+      ></div>
       <div class="rotate-handle" @mousedown="startRotate($event)"></div>
     </div>
   </div>
@@ -208,7 +240,7 @@ const calculateBoundingBox = () => {
     y: minY,
     width: maxX - minX,
     height: maxY - minY,
-    rotation: selectedIds.value.length === 1 && selectedElements.length === 1 && selectedElements[0] && selectedElements[0].type !== 'group' 
+    rotation: selectedIds.value.length === 1 && selectedElements.length === 1 && selectedElements[0] && selectedElements[0].type !== 'group'
       ? (selectedElements[0].rotation || 0)
       : 0  // 多选或组合时rotation为0
   }
@@ -522,10 +554,76 @@ const stopDrag = () => {
   document.removeEventListener('mouseup', stopDrag)
 }
 
-const startResize = (e: MouseEvent, handle: string) => {
+const getRotatedCornerHandle = (e: MouseEvent): string => {
+  if (!cachedBoundingBox.value) return 'br'
+  const viewport = canvasStore.viewport
+  const canvasWidth = canvasStore.width || 800
+  const canvasHeight = canvasStore.height || 600
+  const zoom = viewport.zoom || 1
+
+  // 注意：cachedBoundingBox的x,y是世界坐标，但width,height是屏幕像素尺寸
+  // 需要将宽高转换为世界坐标
+  const worldWidth = cachedBoundingBox.value.width / zoom
+  const worldHeight = cachedBoundingBox.value.height / zoom
+
+  const worldCenterX = cachedBoundingBox.value.x + worldWidth / 2
+  const worldCenterY = cachedBoundingBox.value.y + worldHeight / 2
+
+  const worldMousePos = CoordinateTransform.screenToWorld(
+    e.clientX,
+    e.clientY,
+    viewport,
+    canvasWidth,
+    canvasHeight
+  )
+
+  // 计算鼠标相对于旋转中心的世界坐标偏移
+  const mouseX = worldMousePos.x - worldCenterX
+  const mouseY = worldMousePos.y - worldCenterY
+  // console.log('mouseX, mouseY:', mouseX, mouseY)
+
+  // // 反向旋转到元素的局部坐标系（消除元素旋转的影响）
+  // const cos = Math.cos(-rotation)
+  // const sin = Math.sin(-rotation)
+  // const localX = mouseX * cos - mouseY * sin
+  // const localY = mouseX * sin + mouseY * cos
+
+  // 添加容差处理，避免在边界上抖动
+  const tolerance = 0.0001
+
+  // 判断方位，使用容差来处理接近0的情况
+  const isLeft = mouseX < -tolerance
+  const isRight = mouseX > tolerance
+  const isTop = mouseY < -tolerance
+  const isBottom = mouseY > tolerance
+
+  // 处理在水平或垂直中心线上的情况
+  if (Math.abs(mouseX) <= tolerance) {
+    // 在垂直中心线上，只判断上下
+    if (isTop) return Math.abs(mouseX) < Math.abs(mouseY) ? 'tl' : 'tr'
+    if (isBottom) return Math.abs(mouseX) < Math.abs(mouseY) ? 'bl' : 'br'
+    return 'br'
+  }
+
+  if (Math.abs(mouseY) <= tolerance) {
+    // 在水平中心线上，只判断左右
+    if (isLeft) return Math.abs(mouseY) < Math.abs(mouseX) ? 'tl' : 'bl'
+    if (isRight) return Math.abs(mouseY) < Math.abs(mouseX) ? 'tr' : 'br'
+    return 'br'
+  }
+  // console.log('isLeft, isRight, isTop, isBottom:', isLeft, isRight, isTop, isBottom)
+  // 正常情况下的判断
+  if (isTop && isLeft) return 'tl'
+  if (isTop && isRight) return 'tr'
+  if (isBottom && isRight) return 'br'
+  return 'bl'
+}
+
+const startResize = (e: MouseEvent) => {
   if (!cachedBoundingBox.value) return
   isResizing.value = true
-  resizeHandle.value = handle
+  // 根据旋转后的实际角位置判断缩放点
+  resizeHandle.value = getRotatedCornerHandle(e)
   resizeStart.value = { x: e.clientX, y: e.clientY, w: cachedBoundingBox.value.width, h: cachedBoundingBox.value.height }
 
   // 保存所有元素的初始位置（包括组合的子元素）
@@ -548,22 +646,26 @@ const onResize = (e: MouseEvent) => {
   if (!isResizing.value || !cachedBoundingBox.value) return
 
   const viewport = canvasStore.viewport
-
-  // 计算屏幕空间的偏移量
+  // 直接使用屏幕空间的偏移量（最简单）
   const screenDx = e.clientX - resizeStart.value.x
   const screenDy = e.clientY - resizeStart.value.y
 
-  // 转换为世界空间的偏移量
+  // 转换为世界空间的偏移量（只考虑缩放，不考虑旋转）
   const worldDx = screenDx / viewport.zoom
   const worldDy = screenDy / viewport.zoom
 
+  // 直接使用 worldDx, worldDy，不需要转换到局部坐标系
   let w = resizeStart.value.w
   let h = resizeStart.value.h
 
+  // 关键：使用动态判断的拖拽点方位
+  // resizeHandle.value 已经是根据旋转后的实际方位计算出来的
   if (resizeHandle.value.includes('r')) w += worldDx
   if (resizeHandle.value.includes('l')) w -= worldDx
   if (resizeHandle.value.includes('b')) h += worldDy
   if (resizeHandle.value.includes('t')) h -= worldDy
+
+  // console.log('拖拽点:', resizeHandle.value, 'worldDx:', worldDx, 'worldDy:', worldDy, 'w:', w, 'h:', h)
 
   const isCircle = selectedIds.value.some(id => {
     const el = elementsStore.getElementById(id)
@@ -614,7 +716,7 @@ const stopResize = () => {
   const scaleY = worldHeight / cachedBoundingBox.value.height
 
   if (Math.abs(scaleX - 1) > 0.01 || Math.abs(scaleY - 1) > 0.01) {
-    console.log(selectedIds.value, '应用缩放到 Store:', scaleX, scaleY)
+    // console.log(selectedIds.value, '应用缩放到 Store:', scaleX, scaleY)
     applyResizeToStore(selectedIds.value, cachedBoundingBox.value, scaleX, scaleY, resizeHandle.value, initialElementPositions)
     elementsStore.saveToLocal()
     cachedBoundingBox.value = calculateBoundingBox()
@@ -763,7 +865,53 @@ const stopRotate = () => {
   document.removeEventListener('mousemove', onRotate)
   document.removeEventListener('mouseup', stopRotate)
 }
+// 获取旋转后的光标样式
+const getRotatedCursor = (handle: string, rotation: number): string => {
+  // 将旋转角度转换为度数，并取模360
+  const degrees = (rotation * (180 / Math.PI)) % 360
+  // 将角度转换到0-360范围
+  const normalizedDeg = degrees < 0 ? degrees + 360 : degrees
 
+  // 定义基础方向映射
+  const baseDirections: Record<string, number> = {
+    'tl': 135,    // 西北-东南
+    'tr': 45,   // 东北-西南
+    'bl': 225,   // 西南-东北
+    'br': 315    // 东南-西北
+  }
+
+  // 计算旋转后的方向
+  const baseAngle = baseDirections[handle] || 225
+  const rotatedAngle = (baseAngle + normalizedDeg) % 360
+
+  // 根据角度返回对应的CSS光标值
+  if (rotatedAngle >= 337.5 || rotatedAngle < 22.5) {
+    return 'n-resize'     // 北
+  } else if (rotatedAngle >= 22.5 && rotatedAngle < 67.5) {
+    return 'ne-resize'    // 东北
+  } else if (rotatedAngle >= 67.5 && rotatedAngle < 112.5) {
+    return 'e-resize'     // 东
+  } else if (rotatedAngle >= 112.5 && rotatedAngle < 157.5) {
+    return 'se-resize'    // 东南
+  } else if (rotatedAngle >= 157.5 && rotatedAngle < 202.5) {
+    return 's-resize'     // 南
+  } else if (rotatedAngle >= 202.5 && rotatedAngle < 247.5) {
+    return 'sw-resize'    // 西南
+  } else if (rotatedAngle >= 247.5 && rotatedAngle < 292.5) {
+    return 'w-resize'     // 西
+  } else {
+    return 'nw-resize'    // 西北
+  }
+}
+
+// 获取当前选中的旋转角度
+const getCurrentRotation = (): number => {
+  if (selectedIds.value.length === 1 && selectedIds.value[0]) {
+    const el = elementsStore.getElementById(selectedIds.value[0])
+    return el?.rotation || 0
+  }
+  return 0
+}
 // 组件卸载时清理
 onUnmounted(() => {
   if (animationFrameId !== null) {

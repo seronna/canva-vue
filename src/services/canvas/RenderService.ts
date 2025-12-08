@@ -232,7 +232,7 @@ export class RenderService {
    * 更新Graphics对象
    */
   private updateGraphic(graphic: Graphics, element: AnyElement): void {
-    console.log('updateGraphic :', element.x, element.y)
+    // console.log('updateGraphic :', element.x, element.y)
     this.drawShape(graphic, element)
     graphic.pivot.set(element.width / 2, element.height / 2)
     graphic.x = element.x + element.width / 2
