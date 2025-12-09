@@ -785,6 +785,7 @@ const onRotate = (e: MouseEvent) => {
 
     // Update selection box immediately
     const box = selectedIds.value.length === 1 ? singleBoxRef.value : multiBoxRef.value
+    // console.log(box)
     if (box && boundingBox.value) {
       // Set transform origin to center of the box (in screen coordinates)
       const centerX = boundingBox.value.width / 2
