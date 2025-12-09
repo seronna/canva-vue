@@ -175,6 +175,20 @@ const getRotatedCorners = (x: number, y: number, width: number, height: number, 
 const calculateBoundingBox = () => {
   if (selectedIds.value.length === 0) return null
 
+  // 对于单个组合元素，使用组合本身的边界框和旋转
+  if (selectedIds.value.length === 1 && selectedIds.value[0]) {
+    const el = elementsStore.getElementById(selectedIds.value[0])
+    if (el?.type === 'group') {
+      return {
+        x: el.x,
+        y: el.y,
+        width: el.width,
+        height: el.height,
+        rotation: el.rotation || 0
+      }
+    }
+  }
+
   // 展开组合元素：使用其子元素参与边界框计算
   const selectedElements = selectedIds.value.flatMap(id => {
     const el = elementsStore.getElementById(id)
@@ -201,19 +215,18 @@ const calculateBoundingBox = () => {
 
   selectedElements.forEach(el => {
     // 对于单个非组合元素，边界框不考虑旋转（选择框会旋转）
-    // 对于组合元素或多选，边界框考虑旋转（选择框不旋转）
-    const isSingleNonGroup = selectedIds.value.length === 1 &&
-                             selectedElements.length === 1 &&
-                             el.type !== 'group'
+    // 对于多选，边界框考虑旋转（选择框不旋转）
+    const isSingleElement = selectedIds.value.length === 1 &&
+                            selectedElements.length === 1
 
-    if (isSingleNonGroup) {
+    if (isSingleElement && el.type !== 'group') {
       // 单个非组合元素：边界框不考虑旋转，选择框会旋转
       minX = Math.min(minX, el.x)
       minY = Math.min(minY, el.y)
       maxX = Math.max(maxX, el.x + el.width)
       maxY = Math.max(maxY, el.y + el.height)
     } else {
-      // 组合元素或多选：边界框考虑旋转
+      // 多选：边界框考虑旋转
       const rotation = el.rotation || 0
 
       if (rotation === 0) {
@@ -240,9 +253,7 @@ const calculateBoundingBox = () => {
     y: minY,
     width: maxX - minX,
     height: maxY - minY,
-    rotation: selectedIds.value.length === 1 && selectedElements.length === 1 && selectedElements[0] && selectedElements[0].type !== 'group'
-      ? (selectedElements[0].rotation || 0)
-      : 0  // 多选或组合时rotation为0
+    rotation: 0  // 多选时rotation为0
   }
 }
 
@@ -294,14 +305,9 @@ const worldBoundingBox = computed(() => {
 })
 
 // Get rotation for selection box
-// 注意：对于组合元素，边界框已经考虑了旋转，所以选择框不应该再旋转
 const getSelectionRotation = () => {
   if (selectedIds.value.length === 1 && selectedIds.value[0]) {
     const el = elementsStore.getElementById(selectedIds.value[0])
-    // 如果是组合元素，边界框已经考虑了旋转，返回 0
-    if (el?.type === 'group') {
-      return 0
-    }
     return el?.rotation || 0
   }
   return 0

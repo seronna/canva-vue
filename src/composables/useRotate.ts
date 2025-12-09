@@ -181,6 +181,8 @@ export function useRotate(canvasService: CanvasService | null | undefined) {
         const groupCenterX = el.x + el.width / 2
         const groupCenterY = el.y + el.height / 2
         
+        el.rotation = (el.rotation || 0) + rotationAngle
+        
         groupEl.children?.forEach((childId: string) => {
           const childEl = elementsStore.getElementById(childId)
           if (!childEl) return
@@ -203,8 +205,6 @@ export function useRotate(canvasService: CanvasService | null | undefined) {
           childEl.y = newChildCenterY - childEl.height / 2
           childEl.rotation = (childEl.rotation || 0) + rotationAngle
         })
-        
-        el.rotation = (el.rotation || 0) + rotationAngle
         
         if (selectedIds.length > 1) {
           const elCenterX = el.x + el.width / 2
