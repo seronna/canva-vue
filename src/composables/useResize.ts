@@ -205,11 +205,18 @@ export function useResize(canvasService: CanvasService | null | undefined) {
       if (!bbox) return
 
       // 更新组合元素的位置和尺寸，保持旋转
+      const initialGroupPos = initialPositions?.get(groupId)
+      const baseGroupX = initialGroupPos?.x ?? group.x
+      const baseGroupY = initialGroupPos?.y ?? group.y
+      const baseGroupWidth = initialGroupPos?.width ?? group.width
+      const baseGroupHeight = initialGroupPos?.height ?? group.height
+      const newGroupWidth = baseGroupWidth * scaleX
+      const newGroupHeight = baseGroupHeight * scaleY
       elementsStore.updateElements([groupId], (el) => {
-        el.x = bbox.x
-        el.y = bbox.y
-        el.width = bbox.width
-        el.height = bbox.height
+        el.x = baseGroupX + baseGroupWidth / 2 - newGroupWidth / 2
+        el.y = baseGroupY + baseGroupHeight / 2 - newGroupHeight / 2
+        el.width = newGroupWidth
+        el.height = newGroupHeight
         el.rotation = groupRotation
       })
     })
