@@ -197,6 +197,7 @@ export class AlignmentCalculator {
 
   /**
    * 性能优化：过滤距离太远的元素
+   * 正确处理旋转元素的包围盒
    */
   private static filterNearbyElements(
     elements: AnyElement[],
@@ -204,14 +205,25 @@ export class AlignmentCalculator {
     maxDistance: number
   ): AnyElement[] {
     return elements.filter(el => {
-      const elAABB = {
-        x: el.x,
-        y: el.y,
-        width: el.width,
-        height: el.height
+      // 如果元素有旋转，需要计算其旋转包围盒
+      let elAABB: { x: number; y: number; width: number; height: number }
+      
+      if (el.rotation && Math.abs(el.rotation) > 0.001) {
+        // 为旋转元素计算旋转包围盒，然后取其AABB
+        const elGeometry = elementToGeometry(el)
+        const elRBBox = computeGeometry(elGeometry)
+        elAABB = getAABB([...elRBBox.corners, elRBBox.center])
+      } else {
+        // 未旋转元素直接使用AABB
+        elAABB = {
+          x: el.x,
+          y: el.y,
+          width: el.width,
+          height: el.height
+        }
       }
 
-      // 简单的AABB距离检查
+      // AABB距离检查
       const dx = Math.max(
         targetAABB.x - (elAABB.x + elAABB.width),
         elAABB.x - (targetAABB.x + targetAABB.width),

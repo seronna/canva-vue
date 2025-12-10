@@ -98,12 +98,13 @@ export function useElementDrag(elementId: string) {
     })
 
     // 计算初始边界框（用于 SelectionOverlay 和对齐）
-    const draggedElements = draggedIds.map(id => elementsStore.getElementById(id)).filter(el => el != null)
+    // 基于 baseIds（不包含组合展开后的子元素）来判断是否为单个元素
+    const baseElements = baseIds.map(id => elementsStore.getElementById(id)).filter(el => el != null)
     initialBoundingBox = null
-    if (draggedElements.length > 0) {
+    if (baseElements.length > 0) {
       // 单个元素：保留旋转信息
-      if (draggedElements.length === 1) {
-        const el = draggedElements[0]
+      if (baseElements.length === 1) {
+        const el = baseElements[0]
         if (el) {
           initialBoundingBox = {
             x: el.x,
@@ -116,7 +117,7 @@ export function useElementDrag(elementId: string) {
       } else {
         // 多个元素：计算整体AABB，旋转为0
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-        draggedElements.forEach(el => {
+        baseElements.forEach(el => {
           minX = Math.min(minX, el.x)
           minY = Math.min(minY, el.y)
           maxX = Math.max(maxX, el.x + el.width)

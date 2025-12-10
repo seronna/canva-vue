@@ -175,10 +175,10 @@ const getRotatedCorners = (x: number, y: number, width: number, height: number, 
 const calculateBoundingBox = () => {
   if (selectedIds.value.length === 0) return null
 
-  // 对于单个组合元素，使用组合本身的边界框和旋转
+  // 对于单个元素，无论是组合还是非组合，都使用元素本身的边界框和旋转
   if (selectedIds.value.length === 1 && selectedIds.value[0]) {
     const el = elementsStore.getElementById(selectedIds.value[0])
-    if (el?.type === 'group') {
+    if (el) {
       return {
         x: el.x,
         y: el.y,
@@ -214,37 +214,23 @@ const calculateBoundingBox = () => {
   let maxY = -Infinity
 
   selectedElements.forEach(el => {
-    // 对于单个非组合元素，边界框不考虑旋转（选择框会旋转）
-    // 对于多选，边界框考虑旋转（选择框不旋转）
-    const isSingleElement = selectedIds.value.length === 1 &&
-                            selectedElements.length === 1
+    const rotation = el.rotation || 0
 
-    if (isSingleElement && el.type !== 'group') {
-      // 单个非组合元素：边界框不考虑旋转，选择框会旋转
+    if (rotation === 0) {
+      // 未旋转，直接使用轴对齐边界框
       minX = Math.min(minX, el.x)
       minY = Math.min(minY, el.y)
       maxX = Math.max(maxX, el.x + el.width)
       maxY = Math.max(maxY, el.y + el.height)
     } else {
-      // 多选：边界框考虑旋转
-      const rotation = el.rotation || 0
-
-      if (rotation === 0) {
-        // 未旋转，直接使用轴对齐边界框
-        minX = Math.min(minX, el.x)
-        minY = Math.min(minY, el.y)
-        maxX = Math.max(maxX, el.x + el.width)
-        maxY = Math.max(maxY, el.y + el.height)
-      } else {
-        // 已旋转，计算旋转后的四个角点
-        const corners = getRotatedCorners(el.x, el.y, el.width, el.height, rotation)
-        corners.forEach(corner => {
-          minX = Math.min(minX, corner.x)
-          minY = Math.min(minY, corner.y)
-          maxX = Math.max(maxX, corner.x)
-          maxY = Math.max(maxY, corner.y)
-        })
-      }
+      // 已旋转，计算旋转后的四个角点
+      const corners = getRotatedCorners(el.x, el.y, el.width, el.height, rotation)
+      corners.forEach(corner => {
+        minX = Math.min(minX, corner.x)
+        minY = Math.min(minY, corner.y)
+        maxX = Math.max(maxX, corner.x)
+        maxY = Math.max(maxY, corner.y)
+      })
     }
   })
 
