@@ -56,6 +56,7 @@ export class CanvasService {
 
     // 设置工具服务和事件服务的App实例（传入worldContainer）
     this.toolService.setApp(app, worldContainer || undefined)
+    this.toolService.setViewportService(this.viewportService)
     this.eventService.setApp(app)    // 设置事件处理器
     this.eventService.setHandlers(handlers)
 

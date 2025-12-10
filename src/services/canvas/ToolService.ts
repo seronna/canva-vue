@@ -7,6 +7,7 @@
  * 3. 提供工具切换API
  */
 import { Graphics, FederatedPointerEvent, Application, Container } from 'pixi.js'
+import type { ViewportService } from './ViewportService'
 
 export type ToolType = 'select' | 'pan' | 'rectangle' | 'circle' | 'triangle' | 'text'
 
@@ -21,6 +22,7 @@ export class ToolService {
   private previewShape: Graphics | null = null
   private app: Application | null = null
   private worldContainer: Container | null = null
+  private viewportService: ViewportService | null = null
 
   constructor() { }
 
@@ -30,6 +32,13 @@ export class ToolService {
   setApp(app: Application, worldContainer?: Container): void {
     this.app = app
     this.worldContainer = worldContainer || null
+  }
+
+  /**
+   * 设置 ViewportService 实例
+   */
+  setViewportService(viewportService: ViewportService): void {
+    this.viewportService = viewportService
   }
 
   /**
@@ -73,17 +82,24 @@ export class ToolService {
       // 清除之前的绘制
       this.previewShape.clear()
 
+      // 获取当前缩放级别，计算预览大小（屏幕空间大小固定，世界空间大小随缩放变化）
+      const zoom = this.viewportService?.getViewport().zoom || 1
+      const baseSize = 150 / zoom  // 基础尺寸在屏幕上看起来是固定的
+
       // 根据工具类型绘制预览（使用世界坐标）
       if (this.currentTool === 'rectangle') {
-        this.previewShape.rect(-100, -75, 200, 150)
+        const width = 200 / zoom
+        const height = 150 / zoom
+        this.previewShape.rect(-width / 2, -height / 2, width, height)
         this.previewShape.fill('#4A90E2')
       } else if (this.currentTool === 'circle') {
-        this.previewShape.circle(0, 0, 75)
+        const radius = 75 / zoom
+        this.previewShape.circle(0, 0, radius)
         this.previewShape.fill('#E94B3C')
       } else if (this.currentTool === 'triangle') {
-        // 绘制等腰三角形预览，底边为150，高为150
-        const width = 150
-        const height = 150
+        // 绘制等腰三角形预览
+        const width = baseSize
+        const height = baseSize
         this.previewShape.moveTo(0, -height / 2)  // 顶点
         this.previewShape.lineTo(-width / 2, height / 2)  // 左下角
         this.previewShape.lineTo(width / 2, height / 2)   // 右下角
@@ -154,33 +170,42 @@ export class ToolService {
   ): { x: number; y: number; width: number; height: number } {
     const config = this.getToolConfig(tool)
 
+    // 获取当前缩放级别，计算实际创建大小
+    const zoom = this.viewportService?.getViewport().zoom || 1
+
     if (config.type === 'rectangle') {
+      const width = 200 / zoom
+      const height = 150 / zoom
       return {
-        x: mouseX - 100,
-        y: mouseY - 75,
-        width: 200,
-        height: 150
+        x: mouseX - width / 2,
+        y: mouseY - height / 2,
+        width,
+        height
       }
     } else if (config.type === 'circle') {
+      const size = 150 / zoom
       return {
-        x: mouseX - 75,
-        y: mouseY - 75,
-        width: 150,
-        height: 150
+        x: mouseX - size / 2,
+        y: mouseY - size / 2,
+        width: size,
+        height: size
       }
     } else if (config.type === 'triangle') {
+      const size = 150 / zoom
       return {
-        x: mouseX - 75,
-        y: mouseY - 75,
-        width: 150,
-        height: 150
+        x: mouseX - size / 2,
+        y: mouseY - size / 2,
+        width: size,
+        height: size
       }
     } else if (config.type === 'text') {
+      const width = 200 / zoom
+      const height = 50 / zoom
       return {
-        x: mouseX - 100,
-        y: mouseY - 25,
-        width: 200,
-        height: 50
+        x: mouseX - width / 2,
+        y: mouseY - height / 2,
+        width,
+        height
       }
     }
 
