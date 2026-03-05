@@ -9,7 +9,7 @@ View层 - 画布容器组件
     <image-toolbar />
     <selection-overlay />
     <mini-map />
-    
+
     <!-- 性能监控浮动面板 -->
     <performance-panel ref="performancePanelRef" />
 
