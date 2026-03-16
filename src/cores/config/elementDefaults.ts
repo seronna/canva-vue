@@ -14,6 +14,7 @@ const COLORS = {
     warning: '#FF9500',
     black: '#000000',
     white: '#FFFFFF',
+    afd7fb: '#AFD7FB',
 } as const
 
 /**
@@ -30,22 +31,22 @@ const COMMON_STYLES = {
  */
 export const SHAPE_DEFAULTS = {
     rectangle: {
-        fillColor: COLORS.primary,
+        fillColor: COLORS.afd7fb,
         strokeColor: COMMON_STYLES.strokeColor,
         strokeWidth: COMMON_STYLES.strokeWidth,
     },
     circle: {
-        fillColor: COLORS.danger,
+        fillColor: COLORS.afd7fb,
         strokeColor: COMMON_STYLES.strokeColor,
         strokeWidth: COMMON_STYLES.strokeWidth,
     },
     triangle: {
-        fillColor: COLORS.success,
+        fillColor: COLORS.afd7fb,
         strokeColor: COMMON_STYLES.strokeColor,
         strokeWidth: COMMON_STYLES.strokeWidth,
     },
     roundedRect: {
-        fillColor: COLORS.warning,
+        fillColor: COLORS.afd7fb,
         strokeColor: COMMON_STYLES.strokeColor,
         strokeWidth: COMMON_STYLES.strokeWidth,
         borderRadius: COMMON_STYLES.borderRadius,

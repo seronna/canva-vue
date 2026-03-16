@@ -46,7 +46,7 @@ export const useElementsStore = defineStore('elements', {
 
   actions: {
     /** 记录当前快照 */
-    recordSnapshot() {
+    recordSnapshot(desc: string) {
       // 批处理中跳过，由 endBatch 统一记录
       const history = useHistoryStore()
       if (history.batchDepth > 0) return
@@ -56,6 +56,9 @@ export const useElementsStore = defineStore('elements', {
 
       // 已有定时器说明正在等待，不重复触发
       if (_snapshotTimer !== null) return
+
+      // 将 desc 锁定，避免异步执行时丢失
+      const lockedDesc = desc
 
       _snapshotTimer = window.setTimeout(() => {
         _snapshotTimer = null
@@ -76,7 +79,7 @@ export const useElementsStore = defineStore('elements', {
                 cloned = JSON.parse(JSON.stringify(finalElements))
               }
               const history = useHistoryStore()
-              history.pushSnapshot(cloned)
+              history.pushSnapshot(cloned, lockedDesc)
             })
           })
         } else {
@@ -88,7 +91,7 @@ export const useElementsStore = defineStore('elements', {
             cloned = JSON.parse(JSON.stringify(finalElements))
           }
           const history = useHistoryStore()
-          history.pushSnapshot(cloned)
+          history.pushSnapshot(cloned, lockedDesc)
         }
       }, 30)  // 减少延迟，更快地合并连续操作
     },
@@ -104,7 +107,7 @@ export const useElementsStore = defineStore('elements', {
       try {
         const history = useHistoryStore()
         if (history.index === -1) {
-          history.pushSnapshot(JSON.parse(JSON.stringify(this.elements)))
+          history.pushSnapshot(JSON.parse(JSON.stringify(this.elements)), 'load-from-local')
         }
       } catch {
         // 在某些环境中 useHistoryStore 可能不可用，忽略错误以保证兼容性
@@ -139,21 +142,28 @@ export const useElementsStore = defineStore('elements', {
         ? crypto.randomUUID()
         : `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     },
-    /** 添加元素 */
+
+    /**
+     * 内部工厂：创建元素基础属性
+     * 统一处理 id 生成、时间戳、默认属性
+     */
+    createBaseElement<T extends object>(payload: T): T & { id: string; createdAt: number; updatedAt: number } {
+      return {
+        ...payload,
+        id: this.generateId(),
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
+    },
+    /** 添加形状 */
     addShape(payload: Omit<ShapeElement, 'id' | 'type' | 'createdAt' | 'updatedAt'>): string {
       performanceMonitor.startTimer('add-shape')
 
-      const id = this.generateId();
-      const newElement: ShapeElement = {
-        ...payload,
-        id,
-        type: 'shape',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
+      const newElement: ShapeElement = this.createBaseElement({ ...payload, type: 'shape' as const })
+      
       // 创建新数组引用，触发 watch
       this.elements = [...this.elements, newElement];
-      this.recordSnapshot()
+      this.recordSnapshot('add-shape')
       this.saveToLocal();
 
       performanceMonitor.endTimer('add-shape', MetricType.ELEMENT_OPERATION, {
@@ -161,55 +171,31 @@ export const useElementsStore = defineStore('elements', {
         totalElements: this.elements.length
       })
 
-      return id;
+      return newElement.id;
     },
     // 创建图像元素
     addImage(payload: Omit<ImageElement, 'id' | 'type' | 'createdAt' | 'updatedAt'>): string {
-      const id = this.generateId();
-      const newElement: ImageElement = {
-        ...payload,
-        id,
-        type: 'image',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      // 创建新数组引用，触发 watch
+      const newElement: ImageElement = this.createBaseElement({ ...payload, type: 'image' as const })
       this.elements = [...this.elements, newElement];
-      this.recordSnapshot()
+      this.recordSnapshot('add-image')
       this.saveToLocal();
-      return id;
+      return newElement.id;
     },
     // 创建文本元素
     addText(payload: Omit<TextElement, 'id' | 'type' | 'createdAt' | 'updatedAt'>): string {
-      const id = this.generateId();
-      const newElement: TextElement = {
-        ...payload,
-        id,
-        type: 'text',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      // 创建新数组引用，触发 watch
+      const newElement: TextElement = this.createBaseElement({ ...payload, type: 'text' as const })
       this.elements = [...this.elements, newElement];
-      this.recordSnapshot()
+      this.recordSnapshot('add-text')
       this.saveToLocal();
-      return id;
+      return newElement.id;
     },
     // 创建组合元素
     addGroup(payload: Omit<GroupElement, 'id' | 'type' | 'createdAt' | 'updatedAt'>): string {
-      const id = this.generateId();
-      const newElement: GroupElement = {
-        ...payload,
-        id,
-        type: 'group',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      };
-      // 创建新数组引用，触发 watch
+      const newElement: GroupElement = this.createBaseElement({ ...payload, type: 'group' as const })
       this.elements = [...this.elements, newElement];
-      this.recordSnapshot()
+      this.recordSnapshot('add-group')
       this.saveToLocal();
-      return id;
+      return newElement.id;
     },
 
     /** 更新元素内容 */
@@ -229,7 +215,7 @@ export const useElementsStore = defineStore('elements', {
 
       // 创建新数组引用，触发 watch
       this.elements = [...this.elements]
-      this.recordSnapshot()
+      this.recordSnapshot('update-shape-style')
       this.saveToLocal()
     },
 
@@ -246,7 +232,7 @@ export const useElementsStore = defineStore('elements', {
 
       // 创建新数组引用，触发 watch
       this.elements = [...this.elements]
-      this.recordSnapshot()
+      this.recordSnapshot('update-text')
       this.saveToLocal()
     },
 
@@ -260,7 +246,7 @@ export const useElementsStore = defineStore('elements', {
 
       Object.assign(element, updates)
       element.updatedAt = Date.now()
-      this.recordSnapshot()
+      this.recordSnapshot('update-image')
       this.saveToLocal()
     },
 
@@ -276,7 +262,7 @@ export const useElementsStore = defineStore('elements', {
 
       // 创建新数组引用，触发 watch
       this.elements = [...this.elements]
-      this.recordSnapshot()
+      this.recordSnapshot('move-element')
       this.saveToLocal()
     },
 
@@ -293,7 +279,7 @@ export const useElementsStore = defineStore('elements', {
       
       // 批处理结束后统一记录快照和保存
       if (history.batchDepth === 0) {
-        this.recordSnapshot()
+        this.recordSnapshot('batch-operation')
         this.saveToLocal()
       }
     },
@@ -322,7 +308,7 @@ export const useElementsStore = defineStore('elements', {
       })
 
       // 下面逻辑保持完全不变（顺序也不变）
-      this.recordSnapshot()
+      this.recordSnapshot('move-elements')
       this.saveToLocal()
     },
 
@@ -373,7 +359,7 @@ export const useElementsStore = defineStore('elements', {
     /** 删除元素 */
     removeElement(id: string) {
       this.elements = this.elements.filter((el) => el.id !== id)
-      this.recordSnapshot()
+      this.recordSnapshot('remove-element')
       this.saveToLocal()
     },
 
@@ -381,14 +367,14 @@ export const useElementsStore = defineStore('elements', {
     removeElements(ids: string[]) {
       const idSet = new Set(ids)
       this.elements = this.elements.filter(el => !idSet.has(el.id))
-      this.recordSnapshot()
+      this.recordSnapshot('remove-elements')
       this.saveToLocal()
     },
 
     /** 清空所有元素 */
     clear() {
       this.elements = []
-      this.recordSnapshot()
+      this.recordSnapshot('clear')
       this.saveToLocal()
     },
     /**
@@ -424,7 +410,7 @@ export const useElementsStore = defineStore('elements', {
       const history = useHistoryStore()
       if (history.batchDepth > 0) return
       
-      this.recordSnapshot()
+      this.recordSnapshot('update-elements')
       this.saveToLocal()
     },
 
@@ -781,7 +767,7 @@ export const useElementsStore = defineStore('elements', {
       this.elements = [...this.elements]
 
       // 记录快照
-      this.recordSnapshot()
+      this.recordSnapshot('paste-elements')
       // 保存到本地
       this.saveToLocal()
       // 自动选中新粘贴的元素（只选中顶层元素，不包括组合的子元素）

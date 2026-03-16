@@ -1,7 +1,5 @@
 <template>
   <div class="top-toolbar">
-    <div class="divider"></div>
-
     <div class="toolbar-group">
       <button
         class="tool-btn"
@@ -90,7 +88,6 @@
         @change="handleFileChange"
       />
 
-
     <div class="divider"></div>
 
     <!-- Undo/Redo group (单击功能，不影响选中状态) -->
@@ -132,7 +129,7 @@
           <line x1="8" y1="11" x2="14" y2="11"></line>
         </svg>
       </button>
-      
+
       <button
         class="tool-btn zoom-display"
         @click="handleResetZoom"
@@ -140,7 +137,7 @@
       >
         <span class="zoom-text">{{ zoomPercent }}%</span>
       </button>
-      
+
       <button
         class="tool-btn"
         @click="handleZoomIn"
@@ -153,7 +150,7 @@
           <line x1="8" y1="11" x2="14" y2="11"></line>
         </svg>
       </button>
-      
+
       <button
         class="tool-btn"
         @click="handleFitToView"
@@ -260,7 +257,7 @@ const handleFitToView = () => {
   if (!canvasService) return
   const elements = elementsStore.elements
   if (elements.length === 0) return
-  
+
   // 计算所有元素的边界
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   elements.forEach(el => {
@@ -269,7 +266,7 @@ const handleFitToView = () => {
     maxX = Math.max(maxX, el.x + el.width)
     maxY = Math.max(maxY, el.y + el.height)
   })
-  
+
   const viewportService = canvasService.getViewportService()
   viewportService.fitToView({
     x: minX,
@@ -484,17 +481,17 @@ const handleFileChange = async (event: Event) => {
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 12px;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06),
     0 0 0 1px rgba(0, 0, 0, 0.05);
-  z-index: 100;
+  z-index: 999999;
   transition: all 0.3s ease;
 }
 
 .top-toolbar:hover {
-  box-shadow: 
-    0 10px 15px -3px rgba(0, 0, 0, 0.1), 
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
     0 4px 6px -2px rgba(0, 0, 0, 0.05),
     0 0 0 1px rgba(0, 0, 0, 0.05);
   transform: translateX(-50%) translateY(-2px);

@@ -102,7 +102,7 @@ export class CanvasService {
       const rect = canvas.getBoundingClientRect()
       const mouseX = event.clientX - rect.left
       const mouseY = event.clientY - rect.top
-
+      console.log(1)
       this.viewportService.handleWheel(event.deltaY, mouseX, mouseY)
       this.renderService.updateViewportTransform()
 

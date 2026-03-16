@@ -17,8 +17,8 @@ export const VIEWPORT_CONFIG = {
     },
     /** 缩放倍率 */
     zoomFactor: {
-        in: 1.2,  // 放大倍率
-        out: 0.9, // 缩小倍率（滚轮）
+        in: 1.05,  // 放大倍率
+        out: 0.95, // 缩小倍率（滚轮）
     },
     /** 动画配置 */
     animation: {

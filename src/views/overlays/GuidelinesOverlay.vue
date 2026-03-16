@@ -4,7 +4,7 @@ View层 - 对齐辅助线组件
 -->
 <template>
   <svg class="guidelines-overlay">
-    <!-- 垂直辅助线（线段式） -->
+    <!-- 垂直辅助线 -->
     <line
       v-for="(line, index) in verticalLines"
       :key="`v-${index}`"
@@ -15,8 +15,8 @@ View层 - 对齐辅助线组件
       class="guideline"
       :class="`guideline-${line.type}`"
     />
-    
-    <!-- 水平辅助线（线段式） -->
+
+    <!-- 水平辅助线 -->
     <line
       v-for="(line, index) in horizontalLines"
       :key="`h-${index}`"

@@ -3,7 +3,6 @@ import type { AnyElement } from '@/cores/types/element'
 
 /** 增量差异记录（仅存储变化数据） */
 export interface DiffRecord {
-  // 变化的元素ID及其变化内容
   changes: Map<string, { before?: Partial<AnyElement>; after?: Partial<AnyElement> }>
   changedIds: string[]
   desc: string
@@ -32,9 +31,9 @@ export interface HistoryStats {
 export interface HistoryState {
   stack: HistoryRecord[]
   index: number
-  fullSnapshot: AnyElement[] | null  // 缓存当前完整状态
-  maxSize: number  // 最多保存200条记录
-  compressThreshold: number  // 超过100条时触发压缩
+  fullSnapshot: AnyElement[] | null
+  maxSize: number
+  compressThreshold: number
   batchDepth: number
   pendingRecord: HistoryRecord | null
 }
@@ -44,8 +43,8 @@ export const useHistoryStore = defineStore('history', {
     stack: [],
     index: -1,
     fullSnapshot: null,
-    maxSize: 100,  // 从 200 降低到 100
-    compressThreshold: 50,  // 从 100 降低到 50，更积极地压缩
+    maxSize: 100,
+    compressThreshold: 50,
     batchDepth: 0,
     pendingRecord: null,
   }),
@@ -56,8 +55,13 @@ export const useHistoryStore = defineStore('history', {
       return 'isSnapshot' in record && record.isSnapshot === true
     },
 
-    /** 生成差异记录（仅存储变化部分） */
-    generateDiffRecord(before: AnyElement[], after: AnyElement[]): DiffRecord {
+    /**
+     * 生成差异记录（仅存储变化部分）
+     * @param before 变化前的完整快照
+     * @param after  变化后的完整快照
+     * @param desc   操作语义描述（显式传入，不再反射调用栈）
+     */
+    generateDiffRecord(before: AnyElement[], after: AnyElement[], desc: string): DiffRecord {
       const changes = new Map<string, { before?: Partial<AnyElement>; after?: Partial<AnyElement> }>()
       const changedIds: string[] = []
       const beforeMap = new Map(before.map(e => [e.id, e]))
@@ -67,11 +71,9 @@ export const useHistoryStore = defineStore('history', {
       for (const el of before) {
         const afterEl = afterMap.get(el.id)
         if (!afterEl) {
-          // 删除
           changedIds.push(el.id)
           changes.set(el.id, { before: el })
         } else if (JSON.stringify(el) !== JSON.stringify(afterEl)) {
-          // 修改 - 只存储变化的字段
           changedIds.push(el.id)
           const diff: { before?: Partial<AnyElement>; after?: Partial<AnyElement> } = {}
           diff.before = this.extractChangedFields(el, afterEl)
@@ -88,12 +90,7 @@ export const useHistoryStore = defineStore('history', {
         }
       }
 
-      return {
-        changes,
-        changedIds,
-        desc: this.getCallerMethodName(),
-        timestamp: Date.now(),
-      }
+      return { changes, changedIds, desc, timestamp: Date.now() }
     },
 
     /** 提取两个对象间的变化字段 */
@@ -116,7 +113,6 @@ export const useHistoryStore = defineStore('history', {
     rebuildFullSnapshot(): AnyElement[] {
       if (this.index < 0) return []
 
-      // 向前查找最近的快照点
       let snapshotIndex = this.index
       let snapshot: AnyElement[] | null = null
 
@@ -131,7 +127,6 @@ export const useHistoryStore = defineStore('history', {
 
       if (!snapshot) return []
 
-      // 从快照点应用所有 diff
       for (let i = snapshotIndex + 1; i <= this.index; i++) {
         const record = this.stack[i]
         if (record && !this.isSnapshot(record)) {
@@ -149,56 +144,42 @@ export const useHistoryStore = defineStore('history', {
 
       for (const [id, change] of diff.changes) {
         if (change.after && !change.before) {
-          // 新增
           elementMap.set(id, change.after as AnyElement)
         } else if (change.before && !change.after) {
-          // 删除
           elementMap.delete(id)
         } else if (change.before && change.after) {
-          // 修改
           const element = elementMap.get(id)
-          if (element) {
-            Object.assign(element, change.after)
-          }
+          if (element) Object.assign(element, change.after)
         }
       }
 
       return Array.from(elementMap.values())
     },
 
-    /** 自动获取调用方法名称 */
-    getCallerMethodName(): string {
-      const stack = new Error().stack?.split('\n') || []
-      const line = stack[4] || ''
-      const match = line.match(/at\s+(\w+)/)
-      return match?.[1] || 'unknown'
-    },
-
-    /** 推入历史记录（增量方式） */
-    pushSnapshot(snapshot: AnyElement[]) {
-      const desc = this.getCallerMethodName()
-
+    /**
+     * 推入历史记录（增量方式）
+     * @param snapshot 深克隆后的完整元素快照
+     * @param desc     操作语义描述（显式传入，生产环境 minify 不影响可读性）
+     */
+    pushSnapshot(snapshot: AnyElement[], desc: string) {
       let record: HistoryRecord
 
       if (this.index < 0) {
-        // 第一条记录存为完整快照（snapshot 已经是深克隆后的）
         record = {
-          snapshot: snapshot,  // 不需要再次克隆
+          snapshot,
           changedIds: snapshot.map(e => e.id),
           desc,
           timestamp: Date.now(),
           isSnapshot: true,
         }
       } else {
-        // 后续记录存为差异
         const before = this.fullSnapshot || this.rebuildFullSnapshot()
 
         if (JSON.stringify(before) === JSON.stringify(snapshot)) {
-          // 没有变化，不记录
-          return
+          return // 无变化，不记录
         }
 
-        record = this.generateDiffRecord(before, snapshot)
+        record = this.generateDiffRecord(before, snapshot, desc)
       }
 
       // 批处理中暂存
@@ -214,26 +195,23 @@ export const useHistoryStore = defineStore('history', {
 
       this.stack.push(record)
       this.index++
-      this.fullSnapshot = snapshot  // 直接使用，不需要再次克隆
+      this.fullSnapshot = snapshot
 
-      // 超过阈值时触发压缩
       if (this.stack.length > this.compressThreshold) {
         this.compressHistory()
       }
     },
 
-    /** 压缩历史记录 - 将早期的多个diff合并为快照 */
+    /** 压缩历史记录：将早期多个 diff 合并为一个快照 */
     compressHistory() {
       if (this.stack.length < this.compressThreshold) return
 
-      const keepCount = Math.ceil(this.maxSize * 0.5) // 保留50%的容量
+      const keepCount = Math.ceil(this.maxSize * 0.5)
       const removeCount = this.stack.length - keepCount
 
-      // 找到第一个快照或创建快照点
       let mergeEndIndex = removeCount
       let baseSnapshot: AnyElement[] | null = null
 
-      // 找到removeCount之前的最后一个快照
       for (let i = removeCount - 1; i >= 0; i--) {
         const record = this.stack[i]
         if (record && this.isSnapshot(record)) {
@@ -243,7 +221,6 @@ export const useHistoryStore = defineStore('history', {
         }
       }
 
-      // 从头开始构建
       if (!baseSnapshot) {
         const firstRecord = this.stack[0]
         if (firstRecord && this.isSnapshot(firstRecord)) {
@@ -255,7 +232,6 @@ export const useHistoryStore = defineStore('history', {
         }
       }
 
-      // 应用所有 diff 到快照
       for (let i = mergeEndIndex; i < removeCount; i++) {
         const record = this.stack[i]
         if (record && !this.isSnapshot(record)) {
@@ -264,7 +240,6 @@ export const useHistoryStore = defineStore('history', {
         }
       }
 
-      // 创建压缩后的快照
       const compressedRecord: SnapshotRecord = {
         snapshot: baseSnapshot || [],
         changedIds: (baseSnapshot || []).map(e => e.id),
@@ -273,7 +248,6 @@ export const useHistoryStore = defineStore('history', {
         isSnapshot: true,
       }
 
-      // 替换
       this.stack = [compressedRecord, ...this.stack.slice(removeCount)]
       this.index -= removeCount - 1
     },
@@ -290,7 +264,6 @@ export const useHistoryStore = defineStore('history', {
       if (this.batchDepth === 0 && this.pendingRecord) {
         const record = this.pendingRecord
 
-        // 截掉未来记录
         if (this.index < this.stack.length - 1) {
           this.stack = this.stack.slice(0, this.index + 1)
         }
@@ -298,16 +271,14 @@ export const useHistoryStore = defineStore('history', {
         this.stack.push(record)
         this.index++
 
-        // 从最后一条记录重建快照（避免重复克隆）
         if (this.isSnapshot(record)) {
-          this.fullSnapshot = record.snapshot  // 直接使用，不需要再次克隆
+          this.fullSnapshot = record.snapshot
         } else {
           this.fullSnapshot = this.rebuildFullSnapshot()
         }
 
         this.pendingRecord = null
 
-        // 超过阈值时触发压缩
         if (this.stack.length > this.compressThreshold) {
           this.compressHistory()
         }
@@ -366,7 +337,7 @@ export const useHistoryStore = defineStore('history', {
     },
 
     /** 获取统计信息（调试用） */
-    getStats() {
+    getStats(): HistoryStats {
       let diffCount = 0
       let snapshotCount = 0
       let totalSize = 0

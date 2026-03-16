@@ -33,14 +33,12 @@ export function useCanvas() {
       // 画布点击事件 - 取消选中
       onCanvasClick: () => {
         selectionStore.clearSelection()
-        console.log('清空选择')
       },
       // 元素选中事件（如果是组合内子元素，则选中其父组合）
       onElementSelect: (elementId: string) => {
         const el = elementsStore.getElementById(elementId)
         const logicalId = el?.parentGroup ?? elementId
         selectionStore.selectElement(logicalId)
-        console.log('选中元素:', logicalId)
       },
       // 单个元素移动事件（如果是组合，则同时移动其子元素）
       onElementMove: (elementId: string, dx: number, dy: number) => {

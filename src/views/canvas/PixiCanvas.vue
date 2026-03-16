@@ -8,12 +8,9 @@ View层 - 画布容器组件
     <floating-toolbar />
     <image-toolbar />
     <selection-overlay />
-    <mini-map />
+    <!-- <mini-map /> -->
 
-    <!-- 性能监控浮动面板 -->
-    <performance-panel ref="performancePanelRef" />
-
-    <!-- 文本编辑工具栏 - 使用屏幕坐标，所以放在外面 -->
+    <!-- 文本编辑工具栏 -->
     <text-editor-toolbar
       v-if="editingTextElement && textEditor && isTextEditing"
       :editor="textEditor"
@@ -25,23 +22,19 @@ View层 - 画布容器组件
 
     <div ref="container" class="pixi-canvas">
       <!-- 背景网格 -->
-      <grid-background />
+      <!-- <grid-background /> -->
 
       <!-- 世界容器 - 跟随画布变换 -->
-      <div class="world-container" :style="worldContainerStyle" :class="{ 'panning': isPanning }">
+      <div class="world-container" :style="worldContainerStyle" :class="{ panning: isPanning }">
         <!-- 对齐辅助线 -->
-        <guidelines-overlay class="no-pointer-events" />
+        <!-- <guidelines-overlay class="no-pointer-events" /> -->
 
         <!-- 渲染图片元素 -->
-        <image-element
-          v-for="imageEl in imageElements"
-          :key="imageEl.id"
-          :element="imageEl"
-        />
+        <image-element v-for="imageEl in imageElements" :key="imageEl.id" :element="imageEl" />
       </div>
 
       <!-- 文本元素独立容器 - 移到外面确保能接收事件 -->
-      <div class="text-container" :style="worldContainerStyle" :class="{ 'panning': isPanning }">
+      <div class="text-container" :style="worldContainerStyle" :class="{ panning: isPanning }">
         <text-element
           v-for="textEl in textElements"
           :key="textEl.id"
@@ -75,7 +68,6 @@ import ImageElement from '../../views/elements/ImageElement.vue'
 import TextElement from '../../views/elements/TextElement.vue'
 import TextEditor from '../../views/overlays/TextEditor.vue'
 import TextEditorToolbar from '../../views/ui/TextEditorToolbar.vue'
-import PerformancePanel from '../overlays/PerformancePanel.vue'
 import { useCanvas } from '@/composables/useCanvas'
 import { useElementsStore } from '@/stores/elements'
 import { useCanvasStore } from '@/stores/canvas'
@@ -85,33 +77,32 @@ import type { ImageElement as ImageElementType, TextElement as TextElementType }
 const { container, canvasService } = useCanvas()
 const elementsStore = useElementsStore()
 const canvasStore = useCanvasStore()
-const performancePanelRef = ref<InstanceType<typeof PerformancePanel>>()
 const { viewport } = storeToRefs(canvasStore)
 
-// 鼠标位置跟踪（用于粘贴等操作的世界坐标计算）
+// 鼠标位置跟踪
 const mousePosition = ref({ x: 0, y: 0 })
 
 // 鼠标移动事件处理
 const handleMouseMove = (event: MouseEvent) => {
-  if (!container.value) return
-  const rect = container.value.getBoundingClientRect()
+  if (!container.value) return;
+  const rect = container.value.getBoundingClientRect();
   mousePosition.value = {
     x: event.clientX - rect.left,
-    y: event.clientY - rect.top
+    y: event.clientY - rect.top,
   }
 }
 
 // 平移状态（根据当前工具判断）
-const isPanning = computed(() => canvasStore.currentTool === 'pan')
+const isPanning = computed(() => canvasStore.currentTool === "pan")
 
 // 提供 canvasService 给子组件使用
-provide('canvasService', canvasService)
+provide("canvasService", canvasService)
 
 // 当前编辑的文本元素ID
 const editingTextId = ref<string | null>(null)
 
 // 提供编辑状态给子组件
-provide('editingTextId', editingTextId)
+provide("editingTextId", editingTextId)
 
 // TextEditor 组件引用
 const textEditorRef = ref<InstanceType<typeof TextEditor> | null>(null)
@@ -176,8 +167,7 @@ const globalKeyboard = useGlobalKeyboard({
   canvasService,
   mousePosition,
   editingTextId,
-  performancePanelToggle: () => performancePanelRef.value?.toggle()
-})
+});
 
 onMounted(() => {
   globalKeyboard.registerAllShortcuts()
