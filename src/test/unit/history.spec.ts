@@ -49,7 +49,7 @@ describe('useHistoryStore', () => {
   // ── pushSnapshot（第一条）────────────────
   it('第一次 pushSnapshot 存储完整快照（isSnapshot = true）', () => {
     const elements = [makeElement('e1')]
-    store.pushSnapshot(elements)
+    store.pushSnapshot(elements, 'test')
 
     expect(store.stack).toHaveLength(1)
     expect(store.index).toBe(0)
@@ -60,10 +60,10 @@ describe('useHistoryStore', () => {
   // ── pushSnapshot（后续）──────────────────
   it('第二次 pushSnapshot 存储 diff 记录（isSnapshot = false）', () => {
     const e1 = makeElement('e1', 0, 0)
-    store.pushSnapshot([e1])
+    store.pushSnapshot([e1], 'test')
 
     const e1moved = makeElement('e1', 50, 50)
-    store.pushSnapshot([e1moved])
+    store.pushSnapshot([e1moved], 'test')
 
     expect(store.stack).toHaveLength(2)
     const record1 = store.stack[1]!
@@ -73,8 +73,8 @@ describe('useHistoryStore', () => {
   // ── 相同状态不重复记录 ───────────────────
   it('推入完全相同的状态时不增加记录', () => {
     const elements = [makeElement('e1')]
-    store.pushSnapshot([...elements])
-    store.pushSnapshot([...elements])
+    store.pushSnapshot([...elements], 'test')
+    store.pushSnapshot([...elements], 'test')
 
     expect(store.stack).toHaveLength(1)
   })
@@ -82,10 +82,10 @@ describe('useHistoryStore', () => {
   // ── undo ──────────────────────────────────
   it('undo 回到上一状态，x 恢复为 0', () => {
     const e1 = makeElement('e1', 0, 0)
-    store.pushSnapshot([e1])
+    store.pushSnapshot([e1], 'test')
 
     const e1moved = { ...e1, x: 50, y: 50 }
-    store.pushSnapshot([e1moved])
+    store.pushSnapshot([e1moved], 'test')
 
     const result = store.undo()
     expect(result).not.toBeNull()
@@ -94,16 +94,16 @@ describe('useHistoryStore', () => {
   })
 
   it('index 为 0 时 undo 返回 null（无法继续撤销）', () => {
-    store.pushSnapshot([makeElement('e1')])
+    store.pushSnapshot([makeElement('e1')], 'test')
     expect(store.undo()).toBeNull()
   })
 
   // ── redo ──────────────────────────────────
   it('redo 恢复到下一状态，x 恢复为 50', () => {
     const e1 = makeElement('e1', 0, 0)
-    store.pushSnapshot([e1])
+    store.pushSnapshot([e1], 'test')
     const e1moved = { ...e1, x: 50 }
-    store.pushSnapshot([e1moved])
+    store.pushSnapshot([e1moved], 'test')
 
     store.undo()
     const result = store.redo()
@@ -112,17 +112,17 @@ describe('useHistoryStore', () => {
   })
 
   it('已在最新状态时 redo 返回 null', () => {
-    store.pushSnapshot([makeElement('e1')])
+    store.pushSnapshot([makeElement('e1')], 'test')
     expect(store.redo()).toBeNull()
   })
 
   // ── undo 后 push 截断未来记录 ─────────────
   it('undo 后 push 新快照，截断后续记录', () => {
     const e1 = makeElement('e1', 0, 0)
-    store.pushSnapshot([e1])
-    store.pushSnapshot([{ ...e1, x: 50 }])
+    store.pushSnapshot([e1], 'test')
+    store.pushSnapshot([{ ...e1, x: 50 }], 'test')
     store.undo()
-    store.pushSnapshot([{ ...e1, x: 99 }])
+    store.pushSnapshot([{ ...e1, x: 99 }], 'test')
 
     expect(store.stack).toHaveLength(2)
     expect(store.index).toBe(1)
@@ -132,11 +132,11 @@ describe('useHistoryStore', () => {
   it('超过 compressThreshold 时触发压缩，stack 显著缩短', () => {
     // compressThreshold 默认 50，我们推 55 条
     let currentEl = makeElement('e1', 0, 0)
-    store.pushSnapshot([currentEl])
+    store.pushSnapshot([currentEl], 'test')
 
     for (let i = 1; i <= 55; i++) {
       currentEl = { ...currentEl, x: i }
-      store.pushSnapshot([currentEl])
+      store.pushSnapshot([currentEl], 'test')
     }
 
     // 压缩后 stack 长度应小于 55
@@ -149,12 +149,12 @@ describe('useHistoryStore', () => {
   // ── beginBatch / endBatch ────────────────
   it('beginBatch / endBatch 内的多次 push 合并为 1 条记录', () => {
     const e1 = makeElement('e1', 0, 0)
-    store.pushSnapshot([e1])     // index = 0
+    store.pushSnapshot([e1], 'test')     // index = 0
 
     store.beginBatch()
     // 批次内的 push 不立即入栈
-    store.pushSnapshot([{ ...e1, x: 10 }])
-    store.pushSnapshot([{ ...e1, x: 20 }])
+    store.pushSnapshot([{ ...e1, x: 10 }], 'test')
+    store.pushSnapshot([{ ...e1, x: 20 }], 'test')
     expect(store.stack).toHaveLength(1) // 还未入栈
 
     store.endBatch()

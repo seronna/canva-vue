@@ -23,8 +23,8 @@ export class HistoryService {
   constructor() {}
 
   /** 推入快照（调用方应已准备好快照数据） */
-  pushSnapshot(snapshot: AnyElement[]) {
-    this.store.pushSnapshot(snapshot)
+  pushSnapshot(snapshot: AnyElement[], desc: string = '历史记录') {
+    this.store.pushSnapshot(snapshot, desc)
   }
 
   /** 开始批处理操作 */
@@ -94,4 +94,3 @@ export class HistoryService {
 }
 
 export const historyService = new HistoryService()
-export default historyService

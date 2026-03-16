@@ -43,10 +43,11 @@ export interface EventHandlers {
   resolveInteractiveElementId?: (elementId: string) => string
 }
 
+import { useSelectionStore } from '@/stores/selection'
+
 export class EventService {
   private app: Application | null = null
   private handlers: EventHandlers = {}
-  private selectionBox: Graphics | null = null
   private isBoxSelecting = false
   private boxStartPos = { x: 0, y: 0 }
   private isDragging = false
@@ -61,6 +62,10 @@ export class EventService {
   private draggedIds: string[] = []
   private initialElementPositions: Map<string, { x: number; y: number }> = new Map()
   private dragAnimationFrameId: number | null = null
+  private domElementCache: Map<string, HTMLElement> = new Map()
+
+  // 由于不需要做响应式（被单独使用），可以直接调用 action
+  private selectionStore = useSelectionStore()
 
   constructor() { }
 
@@ -97,6 +102,20 @@ export class EventService {
    */
   setElementIdGetter(getter: (graphic: Graphics) => string | undefined): void {
     this.getElementIdByGraphic = getter
+  }
+
+  /**
+   * 注册 DOM 元素（用于拖拽性能优化）
+   */
+  registerDomElement(id: string, element: HTMLElement): void {
+    this.domElementCache.set(id, element)
+  }
+
+  /**
+   * 注销 DOM 元素
+   */
+  unregisterDomElement(id: string): void {
+    this.domElementCache.delete(id)
   }
 
   /**
@@ -262,11 +281,8 @@ export class EventService {
       this.isBoxSelecting = true
       this.boxStartPos = worldPos  // 使用世界坐标
 
-      // 创建框选框并立即添加到worldContainer
-      if (!this.selectionBox && this.worldContainer) {
-        this.selectionBox = new Graphics()
-        this.worldContainer.addChild(this.selectionBox)
-      }
+      // 将起始坐标同步给 store，供外部 Overlay DOM 渲染
+      this.selectionStore.updateBoxSelection(true, worldPos.x, worldPos.y, 0, 0)
     }
   }
 
@@ -367,7 +383,7 @@ export class EventService {
               }
               // 更新 DOM 元素（文本、图片）的位置
               else if (element.type === 'text' || element.type === 'image') {
-                const domEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+                const domEl = this.domElementCache.get(id) || document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
                 if (domEl) {
                   const rotation = element.rotation || 0
                   domEl.style.transform = `translate3d(${newX}px, ${newY}px, 0) rotate(${rotation}rad)`
@@ -383,17 +399,14 @@ export class EventService {
     }
 
     // 处理框选
-    if (this.isBoxSelecting && this.selectionBox) {
+    if (this.isBoxSelecting) {
       const x = Math.min(this.boxStartPos.x, worldPos.x)
       const y = Math.min(this.boxStartPos.y, worldPos.y)
       const width = Math.abs(worldPos.x - this.boxStartPos.x)
       const height = Math.abs(worldPos.y - this.boxStartPos.y)
 
-      // 绘制框选框（在世界坐标系中）
-      this.selectionBox.clear()
-      this.selectionBox.rect(x, y, width, height)
-      this.selectionBox.stroke({ width: 2 / (this.viewportService?.getViewport().zoom || 1), color: 0x4A90E2 })
-      this.selectionBox.fill({ color: 0x4A90E2, alpha: 0.1 })
+      // 更新框选框的坐标和宽高到 store（按世界坐标更新）
+      this.selectionStore.updateBoxSelection(true, x, y, width, height)
     }
   }
 
@@ -493,10 +506,8 @@ export class EventService {
    * 清除框选框
    */
   private clearSelectionBox(): void {
-    if (this.selectionBox && this.worldContainer) {
-      this.worldContainer.removeChild(this.selectionBox)
-      this.selectionBox.destroy()
-      this.selectionBox = null
+    if (this.isBoxSelecting) {
+      this.selectionStore.updateBoxSelection(false)
     }
   }
 
@@ -517,6 +528,7 @@ export class EventService {
     this.unbindAll()
     this.app = null
     this.handlers = {}
+    this.domElementCache.clear()
   }
 }
 

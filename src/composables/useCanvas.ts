@@ -83,8 +83,9 @@ export function useCanvas() {
       onElementCreate: (x: number, y: number, tool: string) => {
         const pos = canvasService.calculateCreatePosition(x, y, tool as ToolType)
         const id = createElement(pos.x, pos.y, pos.width, pos.height, tool as ToolType)
-        // 创建后自动切换回选择工具
+        // 创建后自动选中该元素，并切换回选择工具
         if (id) {
+          selectionStore.selectElement(id)
           canvasStore.setTool('select')
         }
         return id
@@ -116,14 +117,25 @@ export function useCanvas() {
     // 应用初始视口变换
     canvasService.getRenderService().updateViewportTransform()
 
-    // 首次渲染元素
-    canvasService.renderElements(elementsStore.elements)
+    // 首次渲染元素（计算初始动态 ID）
+    const initialDynamicIds = new Set(selectionStore.selectedIds)
+    canvasService.renderElements(elementsStore.elements, initialDynamicIds)
     console.timeEnd('打开页面到渲染完成用时：')
 
-    // 监听元素数组引用变化（添加/删除/修改元素时 store 会创建新数组）
-    watch(() => elementsStore.elements, () => {
-      canvasService.renderElements(elementsStore.elements)
-    })
+    // 定义统一的渲染触发器，整合动静状态
+    const triggerRender = () => {
+      const dynamicIds = new Set(selectionStore.selectedIds)
+      canvasService.renderElements(elementsStore.elements, dynamicIds)
+    }
+
+    // 监听元素数组引用变化
+    watch(() => elementsStore.elements, triggerRender)
+
+    // 监听选中项变化（选中项需要移入动态层以实时响应交互 UI）
+    watch(() => selectionStore.selectedIds, triggerRender)
+
+    // 监听工具预览状态变化
+    watch(() => canvasStore.toolPreview, triggerRender, { deep: true })
 
     // 监听工具切换
     watch(() => canvasStore.currentTool, (newTool) => {

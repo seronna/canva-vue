@@ -16,10 +16,9 @@ let _snapshotTimer: number | null = null
 let _pendingSnapshot: AnyElement[] | null = null
 
 
-// 定义 clipboard 元素的类型（包含临时属性）
 interface ClipboardElement extends Omit<AnyElement, 'id' | 'createdAt' | 'updatedAt' | 'parentGroup'> {
-  __originalId: string
-  __isGroup: boolean
+  __originalId?: string
+  __isGroup?: boolean
   __parentGroupId?: string
 }
 
@@ -102,7 +101,7 @@ export const useElementsStore = defineStore('elements', {
       // 恢复 clipboard 数据
       this.clipboard = storage.get<ClipboardElement[]>(CLIPBOARD_KEY, [])
       // 恢复 clipboard 元数据
-      this.clipboardMetadata = storage.get<ClipboardMetadata>(CLIPBOARD_KEY + '_metadata', null)
+      this.clipboardMetadata = storage.get<ClipboardMetadata | null>(CLIPBOARD_KEY + '_metadata', null)
       // 将当前加载的状态作为初始快照推入历史，确保刷新后首次操作可被撤销
       try {
         const history = useHistoryStore()
@@ -545,7 +544,7 @@ export const useElementsStore = defineStore('elements', {
       this.clipboard.forEach((clipboardEl) => {
         const typedClipboardEl = clipboardEl as ClipboardElement
         const isGroup = typedClipboardEl.__isGroup === true
-        const originalId = typedClipboardEl.__originalId
+        const originalId = typedClipboardEl.__originalId!
         const parentGroupId = typedClipboardEl.__parentGroupId
 
         if (isGroup) {
@@ -610,12 +609,12 @@ export const useElementsStore = defineStore('elements', {
           updatedAt: Date.now(),
           x: newX,
           y: newY,
-        } as AnyElement
+        } as unknown as AnyElement
 
         // 删除临时属性
-        delete (newElement as ClipboardElement).__originalId
-        delete (newElement as ClipboardElement).__isGroup
-        delete (newElement as ClipboardElement).__parentGroupId
+        delete (newElement as any).__originalId
+        delete (newElement as any).__isGroup
+        delete (newElement as any).__parentGroupId
 
         this.elements.push(newElement)
       })
@@ -662,7 +661,7 @@ export const useElementsStore = defineStore('elements', {
             updatedAt: Date.now(),
             x: clipboardEl.x + offset,
             y: clipboardEl.y + offset,
-          } as AnyElement
+          } as unknown as AnyElement
 
           delete (newElement as ClipboardElement).__originalId
           delete (newElement as ClipboardElement).__isGroup
@@ -683,12 +682,12 @@ export const useElementsStore = defineStore('elements', {
           updatedAt: Date.now(),
           x: newX,
           y: newY,
-        } as AnyElement
+        } as unknown as AnyElement
 
         // 删除临时属性
-        delete (newElement as ClipboardElement).__originalId
-        delete (newElement as ClipboardElement).__isGroup
-        delete (newElement as ClipboardElement).__parentGroupId
+        delete (newElement as any).__originalId
+        delete (newElement as any).__isGroup
+        delete (newElement as any).__parentGroupId
 
         this.elements.push(newElement)
       })
@@ -732,8 +731,8 @@ export const useElementsStore = defineStore('elements', {
         } as GroupElement
 
         // 删除临时属性
-        delete (newGroupElement as ClipboardElement).__originalId
-        delete (newGroupElement as ClipboardElement).__isGroup
+        delete (newGroupElement as any).__originalId
+        delete (newGroupElement as any).__isGroup
 
         this.elements.push(newGroupElement)
         newElementIds.push(groupId)
@@ -743,7 +742,7 @@ export const useElementsStore = defineStore('elements', {
       this.clipboard.forEach((clipboardEl) => {
         const typedClipboardEl = clipboardEl as ClipboardElement
         const isGroup = typedClipboardEl.__isGroup === true
-        const originalId = typedClipboardEl.__originalId
+        const originalId = typedClipboardEl.__originalId!
 
         if (isGroup) {
           // 组合元素ID已经在上面添加了

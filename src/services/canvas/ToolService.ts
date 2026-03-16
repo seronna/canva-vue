@@ -11,18 +11,22 @@ import type { ViewportService } from './ViewportService'
 
 export type ToolType = 'select' | 'pan' | 'rectangle' | 'circle' | 'triangle' | 'text'
 
-export interface ToolConfig {
+interface ToolConfig {
   type: ToolType
   previewSize?: { width: number; height: number }
   fillColor?: string
 }
 
+import { useCanvasStore } from '@/stores/canvas'
+
 export class ToolService {
   private currentTool: ToolType = 'select'
-  private previewShape: Graphics | null = null
   private app: Application | null = null
   private worldContainer: Container | null = null
   private viewportService: ViewportService | null = null
+  
+  // 用于触发工具预览状态更新
+  private canvasStore = useCanvasStore()
 
   constructor() { }
 
@@ -72,44 +76,7 @@ export class ToolService {
     if (!this.app || !this.worldContainer) return
 
     if (this.isDrawingTool()) {
-      // 创建或更新预览图形
-      if (!this.previewShape) {
-        this.previewShape = new Graphics()
-        this.previewShape.alpha = 0.5
-        this.worldContainer.addChild(this.previewShape)
-      }
-
-      // 清除之前的绘制
-      this.previewShape.clear()
-
-      // 获取当前缩放级别，计算预览大小（屏幕空间大小固定，世界空间大小随缩放变化）
-      const zoom = this.viewportService?.getViewport().zoom || 1
-      const baseSize = 150 / zoom  // 基础尺寸在屏幕上看起来是固定的
-
-      // 根据工具类型绘制预览（使用世界坐标）
-      if (this.currentTool === 'rectangle') {
-        const width = 200 / zoom
-        const height = 150 / zoom
-        this.previewShape.rect(-width / 2, -height / 2, width, height)
-        this.previewShape.fill('#4A90E2')
-      } else if (this.currentTool === 'circle') {
-        const radius = 75 / zoom
-        this.previewShape.circle(0, 0, radius)
-        this.previewShape.fill('#E94B3C')
-      } else if (this.currentTool === 'triangle') {
-        // 绘制等腰三角形预览
-        const width = baseSize
-        const height = baseSize
-        this.previewShape.moveTo(0, -height / 2)  // 顶点
-        this.previewShape.lineTo(-width / 2, height / 2)  // 左下角
-        this.previewShape.lineTo(width / 2, height / 2)   // 右下角
-        this.previewShape.closePath()
-        this.previewShape.fill('#34C759')
-      }
-
-      // 使用世界坐标定位
-      this.previewShape.x = worldX
-      this.previewShape.y = worldY
+      this.canvasStore.updateToolPreview(true, this.currentTool, worldX, worldY)
     } else {
       this.clearPreview()
     }
@@ -119,11 +86,7 @@ export class ToolService {
    * 清除预览
    */
   clearPreview(): void {
-    if (this.previewShape && this.worldContainer) {
-      this.worldContainer.removeChild(this.previewShape)
-      this.previewShape.destroy()
-      this.previewShape = null
-    }
+    this.canvasStore.updateToolPreview(false)
   }
 
   /**

@@ -242,5 +242,3 @@ export const APP_CONFIG = {
     textEditor: TEXT_EDITOR_CONFIG,
     animation: ANIMATION_CONFIG,
 } as const
-
-export default APP_CONFIG

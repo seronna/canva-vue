@@ -20,8 +20,10 @@ export class RenderService {
   private container: HTMLElement | null = null
   private viewportService: ViewportService | null = null
 
-  // 世界容器：所有元素都在这个容器中，容器的变换代表视口变换
+  // 世界容器：包含分离的静、动双层
   private worldContainer: Container | null = null
+  private staticContainer: Container | null = null
+  private dynamicContainer: Container | null = null
 
   // 性能优化相关
   private elementSnapshots = new Map<string, string>() // 元素快照，用于脏检查
@@ -61,6 +63,17 @@ export class RenderService {
     this.worldContainer = new Container()
     this.worldContainer.eventMode = 'static'
     this.app.stage.addChild(this.worldContainer)
+
+    // 创建静态图层（核心性能优化点：启用指令缓存）
+    this.staticContainer = new Container()
+    this.staticContainer.isRenderGroup = true //开启 PIXI v8 的离屏渲染指令组聚合
+    // 不设置 eventMode='none'，默认为 passive，允许事件穿透到具体的 Graphics
+
+    // 创建动态图层（位于上方）
+    this.dynamicContainer = new Container()
+
+    this.worldContainer.addChild(this.staticContainer)
+    this.worldContainer.addChild(this.dynamicContainer)
 
     // 如果提供了视口服务，初始化视口尺寸
     if (this.viewportService) {
@@ -109,7 +122,7 @@ export class RenderService {
   /**
    * 渲染元素列表（使用RAF节流 + 脏检查）
    */
-  renderElements(elements: AnyElement[]): void {
+  renderElements(elements: AnyElement[], dynamicIds: Set<string> = new Set()): void {
     if (!this.app) return
 
     // 如果已经有待处理的渲染，取消之前的
@@ -119,46 +132,79 @@ export class RenderService {
 
     // 使用 RAF 批量处理渲染
     this.renderFrameId = requestAnimationFrame(() => {
-      this.renderElementsImmediate(elements)
+      this.renderElementsImmediate(elements, dynamicIds)
       this.renderFrameId = null
     })
   }
 
   /**
-   * 立即渲染元素列表（增量更新 + 脏检查）
+   * 立即渲染元素列表（增量更新 + 脏检查 + 视口裁剪 + 静动分离）
    */
-  private renderElementsImmediate(elements: AnyElement[]): void {
-    if (!this.app) return
+  private renderElementsImmediate(elements: AnyElement[], dynamicIds: Set<string>): void {
+    if (!this.app || !this.staticContainer || !this.dynamicContainer) return
 
     performanceMonitor.startTimer('render-elements')
 
+    // ── 视口裁剪：计算当前可见区域 ──────────────────────────────────
+    const visibleBounds = this.viewportService?.getVisibleBounds() ?? null
+
     const currentElementIds = new Set(elements.map(el => el.id))
     // 删除不再存在的元素
-    this.graphicMap.forEach((graphic, id) => {
+    this.graphicMap.forEach((_graphic, id) => {
       if (!currentElementIds.has(id)) {
         this.removeGraphic(id)
         this.elementSnapshots.delete(id)
       }
     })
 
-    // 渲染或更新元素
+    // 渲染或更新元素（含视口裁剪 + 修复脏检查双重计算）
+    let dirtyCount = 0
     elements.forEach(element => {
-      // 脏检查：只有元素发生变化时才渲染
+      // 图片/组合由 DOM 渲染，跳过
+      if (element.type === 'image' || element.type === 'group') return
+
+      // ── 视口裁剪 ──────────────────────────────────────────────────
+      const inViewport = visibleBounds
+        ? !(
+            element.x + element.width  < visibleBounds.left  ||
+            element.x                  > visibleBounds.right ||
+            element.y + element.height < visibleBounds.top   ||
+            element.y                  > visibleBounds.bottom
+          )
+        : true
+
+      const existing = this.graphicMap.get(element.id)
+      if (!inViewport) {
+        // 视口外：隐藏但不销毁，避免重建开销
+        if (existing) existing.visible = false
+        return
+      }
+
+      // ── 脏检查：只有元素变化时才重绘 ────────────────────────────
       const snapshot = this.createElementSnapshot(element)
       const lastSnapshot = this.elementSnapshots.get(element.id)
 
       if (snapshot !== lastSnapshot) {
-        this.renderElement(element)
+        this.renderElement(element, dynamicIds.has(element.id))
         this.elementSnapshots.set(element.id, snapshot)
+        dirtyCount++
+      } else if (existing && !existing.visible) {
+        // 元素重新进入视口但未变化，仅恢复可见性
+        existing.visible = element.visible
+      } else if (existing) {
+        // 应对选中状态改变但元素属性未变，此时仍需将其跨容器迁移
+        const isDynamic = dynamicIds.has(element.id)
+        const targetContainer = isDynamic ? this.dynamicContainer : this.staticContainer
+        if (existing.parent !== targetContainer && targetContainer) {
+          targetContainer.addChild(existing)
+        }
       }
     })
 
+    // dirtyCount 直接使用循环中的累计值，不再重复遍历
     performanceMonitor.endTimer('render-elements', MetricType.RENDER, {
       elementCount: elements.length,
-      dirtyCount: elements.filter(el => {
-        const snapshot = this.createElementSnapshot(el)
-        return snapshot !== this.elementSnapshots.get(el.id)
-      }).length
+      dirtyCount
     })
   }
 
@@ -183,7 +229,7 @@ export class RenderService {
   /**
    * 渲染单个元素
    */
-  renderElement(element: AnyElement): void {
+  renderElement(element: AnyElement, isDynamic: boolean): void {
     if (!this.app) return
 
     // 图片元素由 DOM 渲染,这里只处理形状
@@ -198,6 +244,13 @@ export class RenderService {
       // 创建新元素
       graphic = this.createGraphic(element)
     }
+
+    // 静动分层逻辑：将变动中的对象移入高频区
+    const targetContainer = isDynamic ? this.dynamicContainer : this.staticContainer
+    if (graphic.parent !== targetContainer && targetContainer) {
+      targetContainer.addChild(graphic)
+    }
+
     graphic.visible = element.visible
   }
 
@@ -220,8 +273,10 @@ export class RenderService {
     graphic.eventMode = 'static'
     graphic.cursor = 'pointer'
 
-    // 添加到世界容器而不是stage
-    this.worldContainer.addChild(graphic)
+    // 新的元素先隐式追加到世界中，会在外界随后被分配进正确图层
+    if (this.staticContainer) {
+      this.staticContainer.addChild(graphic)
+    }
     this.graphicMap.set(element.id, graphic)
     this.graphicToElementId.set(graphic, element.id)
 
@@ -269,7 +324,8 @@ export class RenderService {
       if (element.strokeWidth && element.strokeWidth > 0) {
         graphic.stroke({
           width: element.strokeWidth,
-          color: element.strokeColor || '#000000'
+          color: element.strokeColor || '#000000',
+          alignment: 1 // 1为内描边，放置边框超出宽高盒子
         })
       }
     }
@@ -280,9 +336,9 @@ export class RenderService {
    */
   removeGraphic(elementId: string): void {
     const graphic = this.graphicMap.get(elementId)
-    if (graphic && this.worldContainer) {
+    if (graphic && graphic.parent) {
       graphic.removeAllListeners()
-      this.worldContainer.removeChild(graphic)
+      graphic.parent.removeChild(graphic)
       graphic.destroy()
       this.graphicMap.delete(elementId)
       this.elementSnapshots.delete(elementId)

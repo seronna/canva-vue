@@ -170,8 +170,8 @@ export class CanvasService {
   /**
    * 渲染元素列表
    */
-  renderElements(elements: AnyElement[]): void {
-    this.renderService.renderElements(elements)
+  renderElements(elements: AnyElement[], dynamicIds: Set<string> = new Set()): void {
+    this.renderService.renderElements(elements, dynamicIds)
   }
 
   /**
@@ -193,6 +193,13 @@ export class CanvasService {
    */
   getRenderService(): RenderService {
     return this.renderService
+  }
+
+  /**
+   * 获取事件服务
+   */
+  getEventService(): EventService {
+    return this.eventService
   }
 
   /**

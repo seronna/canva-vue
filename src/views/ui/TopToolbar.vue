@@ -116,6 +116,22 @@
 
     <div class="divider"></div>
 
+    <div class="toolbar-group">
+      <button
+        class="tool-btn"
+        @click="handleExportPng"
+        title="导出 PNG"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="divider"></div>
+
     <!-- 缩放控件 -->
     <div class="toolbar-group zoom-controls">
       <button
@@ -190,7 +206,9 @@ import { historyService } from '@/services'
 import { useElementsStore } from '@/stores/elements'
 import { useSelectionStore } from '@/stores/selection'
 import type { CanvasService } from '@/services/canvas/CanvasService'
+import { exportService } from '@/services/canvas/ExportService'
 import { UPLOAD_CONFIG, UI_CONFIG, VIEWPORT_CONFIG } from '@/cores/config/appConfig'
+import { actionManager } from '@/cores/actions/ActionManager'
 
 const canvasStore = useCanvasStore()
 const guidelinesStore = useGuidelinesStore()
@@ -207,6 +225,26 @@ const toggleSnap = () => {
     content: guidelinesStore.isSnapEnabled ? '已启用对齐吸附' : '已关闭对齐吸附',
     duration: UI_CONFIG.message.defaultDuration
   })
+}
+
+// 导出 PNG
+const handleExportPng = async () => {
+  if (elementsStore.elements.length === 0) {
+    Message.warning('画布为空，无法导出')
+    return
+  }
+  try {
+    const dataUrl = await exportService.exportToPng(elementsStore.elements)
+    // 下载到本地
+    const link = document.createElement('a')
+    link.download = `canvas-export-${Date.now()}.png`
+    link.href = dataUrl
+    link.click()
+    Message.success('导出成功')
+  } catch (error) {
+    console.error('导出失败:', error)
+    Message.error('导出失败')
+  }
 }
 
 // 注入 canvasService
@@ -287,47 +325,11 @@ const setTool = (tool: ToolType) => {
 }
 
 const onUndo = () => {
-  const result = historyService.undo()
-  if (!result) return
-
-  const { changedIds } = result
-
-  // 保存到本地
-  elementsStore.saveToLocal()
-
-  // 自动重新选中被变更的元素（只选择顶层元素，排除组合的子元素）
-  selectionStore.clearSelection()
-  if (changedIds?.length) {
-    changedIds.forEach(id => {
-      const el = elementsStore.getElementById(id)
-      // 只选中顶层元素（没有 parentGroup 的元素），排除掉组合中的子元素
-      if (el && !el.parentGroup) {
-        selectionStore.addToSelection(id)
-      }
-    })
-  }
+  actionManager.executeAction('undo')
 }
 
 const onRedo = () => {
-  const result = historyService.redo()
-  if (!result) return
-
-  const { changedIds } = result
-
-  // 保存到本地
-  elementsStore.saveToLocal()
-
-  // 自动重新选中被变更的元素（只选择顶层元素，排除组合的子元素）
-  selectionStore.clearSelection()
-  if (changedIds?.length) {
-    changedIds.forEach(id => {
-      const el = elementsStore.getElementById(id)
-      // 只选中顶层元素（没有 parentGroup 的元素），排除掉组合中的子元素
-      if (el && !el.parentGroup) {
-        selectionStore.addToSelection(id)
-      }
-    })
-  }
+  actionManager.executeAction('redo')
 }
 
 const handleImageUpload = () => {

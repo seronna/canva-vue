@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, inject } from 'vue'
+import { computed, ref, inject, onMounted, onUnmounted } from 'vue'
 import type { TextElement, GroupElement } from '@/cores/types/element'
 import { useElementsStore } from '@/stores/elements'
 import { useSelectionStore } from '@/stores/selection'
@@ -351,7 +351,8 @@ const handleGroupDragMove = (e: MouseEvent) => {
       if (!el) return
       
       if (el.type === 'text') {
-        const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+        const eventService = canvasService?.getEventService()
+        const textEl = eventService?.['domElementCache']?.get(id) || document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
         if (textEl) {
           const elWorldX = el.x + finalDx
           const elWorldY = el.y + finalDy
@@ -359,7 +360,8 @@ const handleGroupDragMove = (e: MouseEvent) => {
           textEl.style.transform = `translate3d(${elWorldX}px, ${elWorldY}px, 0) rotate(${rotation}rad)`
         }
       } else if (el.type === 'image') {
-        const imgEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+        const eventService = canvasService?.getEventService()
+        const imgEl = eventService?.['domElementCache']?.get(id) || document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
         if (imgEl) {
           const elWorldX = el.x + finalDx
           const elWorldY = el.y + finalDy
@@ -438,6 +440,18 @@ const handleGroupDragUp = (e: MouseEvent) => {
   initialBoundingBox = null
   draggedIds = []
 }
+
+onMounted(() => {
+  if (elementRef.value && canvasService) {
+    canvasService.getEventService().registerDomElement(props.element.id, elementRef.value)
+  }
+})
+
+onUnmounted(() => {
+  if (canvasService) {
+    canvasService.getEventService().unregisterDomElement(props.element.id)
+  }
+})
 
 // 双击进入编辑模式
 const handleDoubleClick = (e: MouseEvent) => {

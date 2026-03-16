@@ -9,7 +9,7 @@ export interface Point {
   y: number;
 }
 // 画布元素基础类型
-export interface CanvasElement {
+interface CanvasElement {
   id: string
   type: 'text' | 'shape' | 'image' | 'group'
   x: number

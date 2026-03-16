@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import type { AnyElement } from '@/cores/types/element'
 
 /** 增量差异记录（仅存储变化数据） */
-export interface DiffRecord {
+interface DiffRecord {
   changes: Map<string, { before?: Partial<AnyElement>; after?: Partial<AnyElement> }>
   changedIds: string[]
   desc: string
@@ -10,7 +10,7 @@ export interface DiffRecord {
 }
 
 /** 完整历史快照（用于第一条记录或压缩点） */
-export interface SnapshotRecord {
+interface SnapshotRecord {
   snapshot: AnyElement[]
   changedIds: string[]
   desc: string
@@ -18,7 +18,7 @@ export interface SnapshotRecord {
   isSnapshot: true
 }
 
-export type HistoryRecord = DiffRecord | SnapshotRecord
+type HistoryRecord = DiffRecord | SnapshotRecord
 
 export interface HistoryStats {
   totalRecords: number
@@ -28,7 +28,7 @@ export interface HistoryStats {
   currentIndex: number
 }
 
-export interface HistoryState {
+interface HistoryState {
   stack: HistoryRecord[]
   index: number
   fullSnapshot: AnyElement[] | null

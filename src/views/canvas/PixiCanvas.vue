@@ -8,6 +8,7 @@ View层 - 画布容器组件
     <floating-toolbar />
     <image-toolbar />
     <selection-overlay />
+    <interactive-overlay />
     <!-- <mini-map /> -->
 
     <!-- 文本编辑工具栏 -->
@@ -55,12 +56,13 @@ View层 - 画布容器组件
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, provide, computed } from 'vue'
+import { ref, onMounted, onUnmounted, provide, computed, watchEffect } from 'vue'
 import { storeToRefs } from 'pinia'
 import TopToolbar from '../../views/ui/TopToolbar.vue'
 import FloatingToolbar from '../../views/ui/FloatingToolbar.vue'
 import ImageToolbar from '../../views/ui/toolbar/ImageToolbar.vue'
 import SelectionOverlay from '../../views/overlays/SelectionOverlay.vue'
+import InteractiveOverlay from '../../views/overlays/InteractiveOverlay.vue'
 import GridBackground from '../../views/canvas/GridBackground.vue'
 import MiniMap from '../../views/canvas/MiniMap.vue'
 import GuidelinesOverlay from '../overlays/GuidelinesOverlay.vue'
@@ -71,7 +73,8 @@ import TextEditorToolbar from '../../views/ui/TextEditorToolbar.vue'
 import { useCanvas } from '@/composables/useCanvas'
 import { useElementsStore } from '@/stores/elements'
 import { useCanvasStore } from '@/stores/canvas'
-import { useGlobalKeyboard } from '@/composables/useGlobalKeyboard'
+import { useActionManager } from '@/composables/useActionManager'
+import { actionManager } from '@/cores/actions/ActionManager'
 import type { ImageElement as ImageElementType, TextElement as TextElementType } from '@/cores/types/element'
 
 const { container, canvasService } = useCanvas()
@@ -162,21 +165,71 @@ const handleTextDoubleClick = (elementId: string) => {
   editingTextId.value = elementId
 }
 
-// 注册全局键盘快捷键
-const globalKeyboard = useGlobalKeyboard({
-  canvasService,
-  mousePosition,
-  editingTextId,
-});
+// 初始化 Action 系统，替代原本的 globalKeyboard
+useActionManager()
+
+// 初始化时将长期不可变依赖注入动态环境
+actionManager.setDynamicContext('canvasService', canvasService)
+actionManager.setDynamicContext('editingTextId', editingTextId)
+
+// 同步关键状态到 ActionManager 动态环境，以便跨界调用
+watchEffect(() => {
+  actionManager.setDynamicContext('mousePosition', mousePosition.value)
+})
 
 onMounted(() => {
-  globalKeyboard.registerAllShortcuts()
   window.addEventListener('mousemove', handleMouseMove)
+  window.addEventListener('keyup', handleKeyUp)
+
+  // 注册局部上下文 Action：按 Esc 取消文字编辑
+  actionManager.registerAction({
+    name: 'cancel-text-edit',
+    desc: '退出文本编辑',
+    perform: (_, { dynamicContext }) => {
+      const editId = dynamicContext.editingTextId
+      if (editId && editId.value) {
+        editId.value = null
+      }
+    },
+    keyTest: (e) => e.key === 'Escape'
+  })
+
+  // 临时空格平移模式
+  let spacePressed = false
+  actionManager.registerAction({
+    name: 'toggle-pan',
+    desc: '临时平移模式',
+    perform: (_, { dynamicContext }) => {
+      const service = dynamicContext.canvasService
+      if (!spacePressed && service) {
+        spacePressed = true
+        if (service.getCurrentTool() !== 'pan') {
+          service.setCanvasCursor('grab')
+        }
+      }
+    },
+    keyTest: (e) => e.code === 'Space' && !e.repeat
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', handleMouseMove)
+  window.removeEventListener('keyup', handleKeyUp)
+  // 移除空格释放监听
+  actionManager.unregisterAction('cancel-text-edit')
+  actionManager.unregisterAction('toggle-pan')
 })
+
+// 单独全局监听空格释放（因为 ActionManager 只监听 keydown）
+const handleKeyUp = (e: KeyboardEvent) => {
+  if (e.code === 'Space') {
+    const service = actionManager['dynamicContext']?.canvasService
+    if (service) {
+      service.setCanvasCursor(service.getCurrentTool() === 'pan' ? 'grab' : 'default')
+      // 重置状态可通过重新执行某种事件处理，这里简单处理
+    }
+  }
+}
 </script>
 
 <style scoped>

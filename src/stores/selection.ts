@@ -3,6 +3,14 @@ import { defineStore } from 'pinia'
 export const useSelectionStore = defineStore('selection', {
   state: () => ({
     selectedIds: [] as string[],
+    // 临时框选框状态（世界坐标）
+    boxSelection: {
+      active: false,
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0
+    }
   }),
 
   getters: {
@@ -52,5 +60,16 @@ export const useSelectionStore = defineStore('selection', {
     isSelected(id: string) {
       return this.selectedIds.includes(id)
     },
+
+    /** 更新正在进行的框选状态 */
+    updateBoxSelection(active: boolean, x = 0, y = 0, width = 0, height = 0) {
+      this.boxSelection.active = active
+      if (active) {
+        this.boxSelection.x = x
+        this.boxSelection.y = y
+        this.boxSelection.width = width
+        this.boxSelection.height = height
+      }
+    }
   },
 })

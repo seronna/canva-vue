@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, inject } from 'vue'
+import { computed, ref, inject, onMounted, onUnmounted } from 'vue'
 import type { ImageElement, GroupElement } from '@/cores/types/element'
 import { useElementDrag } from '@/composables/useElementDrag'
 import { useDragState } from '@/composables/useDragState'
@@ -92,7 +92,8 @@ const handleGroupDragMove = (e: MouseEvent) => {
       if (!el) return
 
       if (el.type === 'image') {
-        const imgEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+        const eventService = canvasService?.getEventService()
+        const imgEl = eventService?.['domElementCache']?.get(id) || document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
         if (imgEl) {
           const elWorldX = el.x + finalDx
           const elWorldY = el.y + finalDy
@@ -100,7 +101,8 @@ const handleGroupDragMove = (e: MouseEvent) => {
           imgEl.style.transform = `translate3d(${elWorldX}px, ${elWorldY}px, 0) rotate(${rotation}rad)`
         }
       } else if (el.type === 'text') {
-        const textEl = document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
+        const eventService = canvasService?.getEventService()
+        const textEl = eventService?.['domElementCache']?.get(id) || document.querySelector(`[data-element-id="${id}"]`) as HTMLElement
         if (textEl) {
           const elWorldX = el.x + finalDx
           const elWorldY = el.y + finalDy
@@ -248,6 +250,25 @@ const onMouseDown = (e: MouseEvent) => {
   }
   handleMouseDown(e)
 }
+
+const elementRef = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  // 查找外层容器
+  const rootEl = document.querySelector(`div.image-element[data-element-id="${props.element.id}"]`) as HTMLElement
+  if (rootEl) {
+    elementRef.value = rootEl
+    if (canvasService) {
+      canvasService.getEventService().registerDomElement(props.element.id, rootEl)
+    }
+  }
+})
+
+onUnmounted(() => {
+  if (canvasService) {
+    canvasService.getEventService().unregisterDomElement(props.element.id)
+  }
+})
 
 // 容器样式 - 使用 transform3d 启用 GPU 加速
 const containerStyle = computed(() => {
